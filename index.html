@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Silver Owl Auton Sim</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f4f4f2; --surface:#fcfcfb; --surface-2:#efefec; --border:#dcdbd6;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#8a8984;
+  --accent:#2a78d6; --s1:#2a78d6; --s2:#eb6834;
+  --field:#e6e5df; --tile:#cbc9c1; --robot:#3a3a38; --robot-fill:#fcfcfb;
+  --warn-bg:#fff4dc; --warn:#8a5300; --active:#e8f0fb; --err-bg:#fde8e8; --err:#a11d1d; --tog-off:#e34948; --goal:#1baf7a; --obj:#eda100; --tog-on:#008300; --good:#1a7f37;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#121211; --surface:#1a1a19; --surface-2:#242422; --border:#353532;
+    --text:#ffffff; --text-2:#c3c2b7; --muted:#8d8c86;
+    --accent:#3987e5; --s1:#3987e5; --s2:#d95926;
+    --field:#20201e; --tile:#3a3a37; --robot:#d8d7d0; --robot-fill:#2a2a28;
+    --warn-bg:#3a2c10; --warn:#f0c060; --active:#1d2a3b; --err-bg:#3d1717; --err:#ff9a9a; --tog-off:#e66767; --goal:#199e70; --obj:#c98500; --tog-on:#3cc43c; --good:#5fd46a;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121211; --surface:#1a1a19; --surface-2:#242422; --border:#353532;
+  --text:#ffffff; --text-2:#c3c2b7; --muted:#8d8c86;
+  --accent:#3987e5; --s1:#3987e5; --s2:#d95926;
+  --field:#20201e; --tile:#3a3a37; --robot:#d8d7d0; --robot-fill:#2a2a28;
+  --warn-bg:#3a2c10; --warn:#f0c060; --active:#1d2a3b; --err-bg:#3d1717; --err:#ff9a9a; --tog-off:#e66767; --goal:#199e70; --obj:#c98500; --tog-on:#3cc43c; --good:#5fd46a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface)}
+header h1{font-size:17px;margin:0 auto 0 0}
+header .sub{color:var(--text-2);font-size:12px;font-weight:400;margin-left:6px}
+button,select,input{font:inherit;color:var(--text)}
+button{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer}
+button:hover{border-color:var(--text-2)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.icon{padding:2px 7px;font-size:12px}
+select,input[type=number],input[type=text]{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:3px 6px;min-width:0}
+input[type=number]{width:100%}
+.app{display:grid;grid-template-columns:minmax(330px,410px) minmax(0,1fr);gap:16px;padding:16px;align-items:start}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:16px}
+.panel h2{font-size:14px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.panel h2 .grow{flex:1}
+.hint{color:var(--text-2);font-size:12px;margin:0 0 8px}
+.steps{display:flex;flex-direction:column;gap:8px;max-height:62vh;overflow:auto;padding-right:2px}
+.step{border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--surface)}
+.step.active{background:var(--active);border-color:var(--accent)}
+.step-head{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.step-head .num{color:var(--muted);font-variant-numeric:tabular-nums;width:22px;cursor:pointer}
+.step-head select{flex:1}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px}
+.fields label{display:flex;flex-direction:column;font-size:11px;color:var(--text-2);gap:2px}
+.fields label.chk{flex-direction:row;align-items:center;gap:6px;font-size:12px;color:var(--text)}
+.add-row{display:flex;gap:6px;margin-top:8px}
+.add-row select{flex:1}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{text-align:left;padding:4px 5px;border-bottom:1px solid var(--border);vertical-align:middle}
+th{color:var(--text-2);font-weight:600}
+td input[type=number],td input[type=text]{width:100%}
+.cfg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px}
+.cfg label{display:flex;flex-direction:column;font-size:11px;color:var(--text-2);gap:2px}
+.cfg label.chk{flex-direction:row;align-items:center;gap:6px;font-size:12px;color:var(--text);grid-column:1/-1}
+.fieldwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+#stage{width:100%;max-width:min(1100px,calc(100vh - 230px));min-width:min(100%,300px)}
+#stage.fs{position:fixed;inset:0;z-index:50;max-width:none;background:var(--bg);padding:16px;display:grid;
+  grid-template-columns:min(calc(100vw - 372px),calc(100vh - 140px)) 320px;grid-template-rows:auto auto auto;
+  grid-template-areas:"obj obj" "field side" "ctrl side";justify-content:center;align-content:center;gap:10px 20px;overflow:auto}
+#stage.fs #objectivesFs{grid-area:obj;margin:0}
+#stage.fs #field{grid-area:field;width:100%;height:auto}
+#stage.fs .controls{grid-area:ctrl;margin-top:0}
+#stage.fs #fsSide{grid-area:side;display:flex}
+#stage .fs-only{display:none}
+#stage.fs .fs-only{display:flex}
+#fsSide{flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;min-height:0;max-height:calc(100vh - 120px);overflow:hidden}
+#fsSide .now{font-size:13px}
+#fsSide .now b{display:block;font-size:12px;color:var(--text-2);font-weight:600;margin-bottom:2px}
+#fsSide .now .call{font-size:13px}
+#fsSide dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;margin:0;font-size:12px;font-variant-numeric:tabular-nums}
+#fsSide dt{color:var(--text-2)}
+#fsSide dd{margin:0}
+#fsSteps{list-style:none;margin:0;padding:0;overflow:auto;flex:1;min-height:0;font:12px/1.35 ui-monospace,Consolas,monospace;border-top:1px solid var(--border);padding-top:8px}
+#fsSteps li{padding:3px 6px;border-radius:5px;color:var(--text-2);word-break:break-all}
+#fsSteps li.cur{background:var(--active);color:var(--text);outline:1px solid var(--accent)}
+#fsSteps li.past{color:var(--muted)}
+@media (max-width:760px){#stage.fs{grid-template-columns:minmax(0,1fr);grid-template-areas:"obj" "field" "ctrl" "side"}}
+[hidden]{display:none!important}
+.startctl{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--text-2)}
+.startctl label{display:flex;align-items:center;gap:4px}
+.startctl input{width:64px}
+.levelbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:8px}
+.levelbar .hint{margin:0;flex:1;min-width:200px}
+.objectives{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;margin-bottom:10px;align-items:center}
+.objectives .done{color:var(--good)}
+.objectives .result{font-weight:600}
+.pin-row{display:flex;gap:8px;align-items:center;margin:8px 0}
+.pin-row input{width:120px;letter-spacing:.3em}
+.pin-err{color:var(--err);font-size:12px;min-height:16px}
+#field{width:100%;aspect-ratio:1;display:block;border-radius:8px;cursor:default}
+#field.placing{cursor:crosshair}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.controls input[type=range]{flex:1;min-width:140px}
+.readout{display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:3px 14px;margin:0;font-size:13px;font-variant-numeric:tabular-nums}
+.readout dt{color:var(--text-2)}
+.readout dd{margin:0}
+@media (max-width:700px){.readout{grid-template-columns:auto minmax(0,1fr)}}
+.call{font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-all}
+.warns{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:12px}
+.warns ul{margin:0;padding-left:18px}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.chart{position:relative}
+.chart h3{font-size:13px;margin:0 0 2px;font-weight:600}
+.legend{display:flex;gap:12px;font-size:12px;color:var(--text-2);min-height:18px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:14px;height:2px;border-radius:1px}
+.legend i.dash{background:none!important;border-top:2px dashed var(--text-2);height:0}
+.chart canvas{width:100%;height:170px;display:block;cursor:crosshair}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);display:none;white-space:nowrap;font-variant-numeric:tabular-nums;z-index:2}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+tr.res{cursor:pointer}
+tr.res.active{background:var(--active)}
+dialog{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;width:min(720px,92vw)}
+dialog textarea{min-height:200px;width:100%;height:55vh;font:12px/1.4 ui-monospace,Consolas,monospace;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px}
+.row{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:3px 10px;background:var(--surface)}
+.seg button.on{background:var(--accent);color:#fff}
+#code{width:100%;height:58vh;font:12.5px/1.5 ui-monospace,Consolas,monospace;background:var(--surface-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical;white-space:pre;tab-size:4}
+.errs{background:var(--err-bg);color:var(--err);border-radius:8px;padding:8px 10px;font-size:12px;margin:8px 0}
+.errs ul{margin:0;padding-left:18px}
+.errs li{cursor:pointer;font-family:ui-monospace,Consolas,monospace}
+.ok{color:var(--text-2);font-size:12px;margin-top:6px}
+.fixnote{color:var(--text-2);font-size:12px;margin:0 0 8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Silver Owl Auton Sim<span class="sub">Silver-Owl-Library autonomous simulator</span></h1>
+  <select id="preset" aria-label="Preset routine">
+    <option value="default">Default</option>
+    <option value="quick">README quick start</option>
+    <option value="blank">Blank</option>
+  </select>
+  <button id="loadPreset">Load preset</button>
+  <button id="exportBtn">C++ code</button>
+  <button id="themeBtn" title="Toggle light/dark">Theme</button>
+</header>
+
+<div class="app">
+  <aside>
+    <section class="panel">
+      <h2><span class="grow">Autonomous routine</span>
+        <button class="icon" id="clearBtn" title="Remove every step or all code">Clear</button>
+        <span class="seg" role="group" aria-label="Editor mode"><button id="modeBlocks">Blocks</button><button id="modeCode">Code</button></span>
+      </h2>
+      <div id="blocksView">
+        <p class="hint">Steps run from top to bottom. Click a step number to jump to that step.</p>
+        <div class="steps" id="steps"></div>
+        <div class="add-row">
+          <select id="addType"></select>
+          <button id="addBtn">Add step</button>
+        </div>
+      </div>
+      <div id="codeView" hidden>
+        <p class="hint">Write one statement per line, each ending in <code>;</code>. Available: MoveEncoderPID, MovePID, TurnMaxTimePID, MoveTimePID, MoveTime, wait, RunRoller, BStop, CStop, Claw.set and Toggle.set. Declare a PID set with <code>PIDDataSet name={kp, ki, kd};</code>. Sets in the PID table are already declared.</p>
+        <textarea id="code" spellcheck="false" aria-label="Autonomous code"></textarea>
+        <div id="codeStatus"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="grow">PID sets</span><button class="icon" id="resetPid" title="Restore TestPara, headingPID and distancePID and remove other sets">Restore defaults</button><button class="icon" id="addPid">Add set</button></h2>
+      <table>
+        <thead><tr><th>Name</th><th>kp</th><th>ki</th><th>kd</th><th></th></tr></thead>
+        <tbody id="pids"></tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Robot &amp; physics</h2>
+      <div class="cfg" id="cfg"></div>
+    </section>
+  </aside>
+
+  <main>
+    <section class="panel">
+      <div class="levelbar">
+        <select id="levelSel" aria-label="Level"></select>
+        <button id="keyBtn">Answer key</button>
+        <p class="hint" id="levelDesc"></p>
+      </div>
+      <div class="startctl" id="startCtl">
+        <span>Start position</span>
+        <label>X <input type="number" step="any" id="startX" aria-label="Start X (in)"></label>
+        <label>Y <input type="number" step="any" id="startY" aria-label="Start Y (in)"></label>
+        <label>Heading <input type="number" step="any" id="startH" aria-label="Start heading (deg)"></label>
+        <button id="placeBtn" title="Click the field to set the start position">Place on field</button>
+      </div>
+      <div class="objectives" id="objectives"></div>
+      <div class="fieldwrap">
+        <div id="stage">
+          <div class="objectives fs-only" id="objectivesFs"></div>
+          <canvas id="field" aria-label="Field view"></canvas>
+          <div class="controls">
+            <button class="primary" id="runBtn">Run</button>
+            <button id="playBtn">Pause</button>
+            <select id="speed" aria-label="Playback speed">
+              <option value="0.25">0.25x</option><option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option>
+            </select>
+            <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Timeline">
+            <button id="fsBtn" title="Fullscreen field (Esc to exit)">Fullscreen</button>
+          </div>
+          <aside id="fsSide" class="fs-only" aria-label="Current step">
+            <div class="now"><b id="fsStepNo">Step</b><div class="call" id="fsCall"></div></div>
+            <dl id="fsStats"></dl>
+            <ol id="fsSteps"></ol>
+          </aside>
+        </div>
+        <div>
+          <dl class="readout" id="readout"></dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="charts" id="charts"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Step results</h2>
+      <p class="fixnote">The simulator fixes these bugs from movement.cpp without changing the library file: distances and PrevE keep their decimals, heading errors wrap to ±180°, and a positive Speed always drives forward. MoveEncoderPID still has no timeout.</p>
+      <div id="warns"></div>
+      <table>
+        <thead><tr><th>#</th><th>Call</th><th>Start (s)</th><th>Duration (s)</th><th>Ended because</th><th>Heading</th><th>Distance (in)</th></tr></thead>
+        <tbody id="results"></tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<dialog id="keyDlg">
+  <h2 style="margin-top:0;font-size:15px" id="keyTitle">Answer key</h2>
+  <div id="keyLock">
+    <p class="hint">Enter the PIN to see the example solution.</p>
+    <div class="pin-row"><input type="password" id="pinIn" inputmode="numeric" maxlength="8" aria-label="PIN"><button class="primary" id="pinGo">Unlock</button></div>
+    <div class="pin-err" id="pinErr"></div>
+  </div>
+  <div id="keyBody" hidden>
+    <textarea id="keyOut" readonly></textarea>
+    <div class="row"><button id="keyLoad" class="primary">Load into Code editor</button></div>
+  </div>
+  <div class="row"><button id="keyClose">Close</button></div>
+</dialog>
+
+<dialog id="codeDlg">
+  <h2 style="margin-top:0;font-size:15px">Generated C++</h2>
+  <textarea id="codeOut" readonly></textarea>
+  <div class="row"><button id="copyCode">Copy</button><button id="closeCode">Close</button></div>
+</dialog>
+
+<script>
+"use strict";
+// ---------- definitions ----------
+const FN = {
+  MoveEncoderPID:{params:[['KVals','pid'],['Speed','num'],['dist','num','in'],['AccT','num','s'],['ABSHDG','num','deg'],['brake','bool']],
+    def:{KVals:'TestPara',Speed:100,dist:24,AccT:0.4,ABSHDG:0,brake:true}},
+  MovePID:{params:[['KVals','pid'],['Dvals','pid'],['Speed','num'],['dist','num','in'],['AccT','num','s'],['ABSHDG','num','deg'],['brake','bool'],['time','num','s']],
+    def:{KVals:'headingPID',Dvals:'distancePID',Speed:80,dist:24,AccT:0.4,ABSHDG:0,brake:true,time:2.5}},
+  TurnMaxTimePID:{params:[['KVals','pid'],['DeltaAngle','num','deg'],['TE','num','s'],['brake','bool']],
+    def:{KVals:'TestPara',DeltaAngle:90,TE:0.9,brake:true}},
+  MoveTimePID:{params:[['KVals','pid'],['Speed','num'],['TE','num','s'],['AccT','num','s'],['ABSHDG','num','deg'],['brake','bool']],
+    def:{KVals:'TestPara',Speed:50,TE:1,AccT:0.4,ABSHDG:0,brake:true}},
+  MoveTime:{params:[['Speed','num'],['TE','num','s'],['AccT','num','s'],['brake','bool']],
+    def:{Speed:50,TE:1,AccT:0.4,brake:true}},
+  wait:{params:[['ms','num','msec']],def:{ms:200}},
+  RunRoller:{params:[['val','num']],def:{val:-100}},
+  Piston:{params:[['device','sel',['Claw','Toggle']],['value','bool']],def:{device:'Claw',value:true}},
+  BStop:{params:[],def:{}},
+  CStop:{params:[],def:{}},
+};
+const HEADING_KEY = {MoveEncoderPID:'ABSHDG',MovePID:'ABSHDG',TurnMaxTimePID:'DeltaAngle',MoveTimePID:'ABSHDG'};
+
+const DEFAULT_PIDS = [
+  {name:'TestPara',kp:1.5,ki:0.1,kd:0.15},
+  {name:'headingPID',kp:1.25,ki:0.001,kd:0.08},
+  {name:'distancePID',kp:0.85,ki:0,kd:0.05},
+];
+// [key, label, default, source]  source: 'lib' = found in Silver-Owl-Library, 'assumed' = not in library
+// Drivetrain power is always 100% on both sides; levels never change these values.
+const CFG_FIELDS = [
+  ['wheelDiam','Wheel diameter (in)',2.75],
+  ['gearA','Motor gear teeth',36],
+  ['gearB','Wheel gear teeth',48],
+  ['rpm','Motor speed (rpm)',600],
+  ['maxVolt','Full-power voltage (V)',11],
+  ['track','Track width (in)',12],
+  ['tau','Motor response time (s)',0.12],
+  ['tauBrake','Brake stop time (s)',0.04],
+  ['tauCoast','Coast stop time (s)',0.6],
+  ['robotSize','Robot size (in)',15],
+  ['maxTime','Simulation time limit (s)',30],
+];
+const DEFAULT_START = {startX:36,startY:24,startH:0};
+const DEFAULT_CFG = {...Object.fromEntries(CFG_FIELDS.map(f=>[f[0],f[2]])),...DEFAULT_START};
+
+const mk = (fn,...v)=>{const a={};FN[fn].params.forEach((p,i)=>a[p[0]]=v[i]);return {fn,a};};
+const T='TestPara';
+const PRESETS = {
+  default:[ mk('MoveEncoderPID',T,100,24,0.4,0,true) ],
+  quick:[
+    mk('MovePID','headingPID','distancePID',80,24,0.4,0,true,2.5),
+    mk('TurnMaxTimePID','headingPID',90,1.2,true), mk('MovePID','headingPID','distancePID',80,12,0.3,90,true,2),
+  ],
+  blank:[],
+};
+
+// ---------- state ----------
+const clone = o=>JSON.parse(JSON.stringify(o));
+// ---------- practice levels ----------
+// Field: 144 x 144 in, x right, y up, field heading 0 = +y (clockwise positive). Gyro starts at 0 at the start heading.
+// toggle: point on a wall, hit by the back piston. objs: game object centers. goals: [x, y, radius].
+const LEVELS = [
+  {name:'Level 1: Straight Shot', time:15,
+   desc:'Everything is in a straight line. Back into the toggle, then carry the object forward to the goal.',
+   start:[72,20,0], toggles:[[72,0]], objs:[[72,62]], goals:[[72,116,10]], key:"// Level 1 example solution\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\nPIDDataSet driveD={3.0, 0, 0.05};\nToggle.set(true);\nMoveTimePID(TestPara, -40, 0.5, 0.2, 0, true);   // back into the wall toggle\nToggle.set(false);\nMovePID(headingPID, driveD, 70, 46, 0.3, 0, true, 2);\nClaw.set(true);                                   // grab object\nMovePID(headingPID, driveD, 70, 50, 0.3, 0, true, 2);\nClaw.set(false);                                  // drop in goal\n"},
+  {name:'Level 2: First Turn', time:15,
+   desc:'One 90° turn. Grab the object ahead, turn right, and drop it in the goal.',
+   start:[24,20,0], toggles:[[24,0]], objs:[[24,76]], goals:[[100,68,10]], key:"// Level 2 example solution\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\nPIDDataSet driveD={3.0, 0, 0.05};\nToggle.set(true);\nMoveTimePID(TestPara, -40, 0.5, 0.2, 0, true);\nToggle.set(false);\nMovePID(headingPID, driveD, 70, 60, 0.3, 0, true, 2);\nClaw.set(true);\nTurnMaxTimePID(TestPara, 90, 0.8, true);\nMovePID(headingPID, driveD, 70, 67, 0.3, 90, true, 2);\nClaw.set(false);\n"},
+  {name:'Level 3: Double Delivery', time:15,
+   desc:'Two objects and one goal. Reaching the second object takes an angled turn.',
+   start:[72,20,0], toggles:[[72,0]], objs:[[72,54],[36,84]], goals:[[72,112,9]], key:"// Level 3 example solution\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\nPIDDataSet driveD={3.0, 0, 0.05};\nToggle.set(true);\nMoveTimePID(TestPara, -40, 0.5, 0.2, 0, true);\nToggle.set(false);\nMovePID(headingPID, driveD, 70, 34, 0.3, 0, true, 2);\nClaw.set(true);                                   // object 1\nMovePID(headingPID, driveD, 70, 58, 0.3, 0, true, 2);\nClaw.set(false);\nMovePID(headingPID, driveD, -70, 19.5, 0.3, 0, true, 2);\nTurnMaxTimePID(TestPara, -90, 0.8, true);\nMovePID(headingPID, driveD, 70, 27.5, 0.3, -90, true, 2);\nClaw.set(true);                                   // object 2\nTurnMaxTimePID(TestPara, 44, 0.9, true);\nMovePID(headingPID, driveD, 70, 31, 0.3, 44, true, 2);\nClaw.set(false);\n"},
+  {name:'Level 4: Side Switch', time:15,
+   desc:'Two toggles, on the right and top walls. Back into both and deliver two objects to two goals.',
+   start:[120,20,0], toggles:[[144,64],[88,144]], objs:[[84,64],[48,100]], goals:[[24,64,8],[96,124,8]], key:"// Level 4 example solution\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\nPIDDataSet driveD={3.0, 0, 0.05};\nMovePID(headingPID, driveD, 70, 44, 0.3, 0, true, 2);\nTurnMaxTimePID(TestPara, -90, 0.8, true);\nToggle.set(true);\nMoveTimePID(TestPara, -40, 0.8, 0.2, -90, true);\nToggle.set(false);\nMovePID(headingPID, driveD, 70, 44, 0.3, -90, true, 2);\nClaw.set(true);\nMovePID(headingPID, driveD, 70, 60, 0.3, -90, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, 23, 0.9, true);\nMovePID(headingPID, driveD, 70, 30.7, 0.3, 23, true, 2);\nClaw.set(true);\nTurnMaxTimePID(TestPara, 61, 0.7, true);\nMovePID(headingPID, driveD, 70, 51, 0.3, 61, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, 180, 0.6, true);        // back faces the top wall\nToggle.set(true);\nMoveTimePID(TestPara, -50, 0.7, 0.2, 180, true);  // toggle 2\nToggle.set(false);\n"},
+  {name:'Level 5: Precision Run', time:15,
+   desc:'The robot starts facing east, so a gyro heading of 0 points east. Two toggles, three objects and two small goals in 15 seconds.',
+   start:[18,72,90], toggles:[[0,72],[68,144]], objs:[[56,72],[96,36],[96,108]], goals:[[126,72,7],[60,124,7]], key:"// Level 5 example solution\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\n// hold: stiffer heading PID for straighter long drives.\nPIDDataSet driveD={3.0, 0, 0.05};\nPIDDataSet hold={2.5, 0.05, 0.1};\nToggle.set(true);\nMoveTimePID(TestPara, -40, 0.5, 0.2, 0, true);\nToggle.set(false);\nMovePID(hold, driveD, 70, 38, 0.3, 0, true, 2);\nClaw.set(true);\nMovePID(hold, driveD, 80, 70, 0.3, 0, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, 121, 0.9, true);\nMovePID(hold, driveD, 70, 33.4, 0.3, 121, true, 2);\nClaw.set(true);\nTurnMaxTimePID(TestPara, -46, 0.8, true);\nMovePID(hold, driveD, 70, 28.8, 0.3, -46, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, -120, 0.8, true);\nMovePID(hold, driveD, 80, 39.8, 0.3, -120, true, 2);\nClaw.set(true);\nTurnMaxTimePID(TestPara, -150, 0.6, true);\nMovePID(hold, driveD, 80, 37.2, 0.3, -150, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, 90, 0.6, true);         // back faces the top wall\nToggle.set(true);\nMoveTimePID(TestPara, -60, 0.5, 0.2, 90, true);   // toggle 2\nToggle.set(false);\n"},
+];
+const curLevel=()=>LEVELS[(state&&state.level||0)-1]||null;
+function effCfg(){
+  const L=curLevel(); if(!L) return state.cfg;
+  return {...state.cfg,startX:L.start[0],startY:L.start[1],startH:L.start[2]};
+}
+
+const STORE_KEY = 'silver-owl-sim-v3';
+let state = {steps:clone(PRESETS.default), pids:clone(DEFAULT_PIDS), cfg:clone(DEFAULT_CFG), mode:'blocks', code:'', codeStale:true, level:0};
+try{
+  const s = JSON.parse(localStorage.getItem(STORE_KEY)||'null');
+  if(s && Array.isArray(s.steps) && Array.isArray(s.pids)) state = {...state, ...s, cfg:{...DEFAULT_CFG,...s.cfg}};
+}catch(e){}
+const save = ()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}};
+
+// ---------- simulation (faithful port of movement.cpp) ----------
+function simulate(steps, pids, cfg, level){
+  const ratio = cfg.gearA/cfg.gearB;
+  const vmax = cfg.rpm*ratio/60*Math.PI*cfg.wheelDiam;   // in/s at 12 V
+  const PH = 0.002, SAMPLE_EVERY = 5;                     // 2 ms physics, 10 ms samples
+  const maxTicks = Math.round(Math.max(1,cfg.maxTime)/PH);
+  const S = {tick:0,t:0,x:cfg.startX,y:cfg.startY,rot:0,gz:0,vl:0,vr:0,dl:0,dr:0,zl:0,zr:0,
+    mL:'coast',mR:'coast',VL:0,VR:0,cmdL:0,cmdR:0,t0:0,err:null,dT:null,tgt:null,step:-1,roller:0,
+    pist:{Claw:false,Toggle:false}};
+  // ----- practice-level world -----
+  const RB = cfg.robotSize/2, REACH = RB+1, GRAB = 6, TOG_R = 6;
+  const W = {objs:(level?level.objs:[]).map(([x,y])=>({x,y,held:false,goal:-1})), held:-1, togs:(level?level.toggles:[]).map(()=>({on:false,contact:false})), doneT:null};
+  const ends = () => { const th=(cfg.startH+S.rot)*Math.PI/180, sx=Math.sin(th), cy=Math.cos(th);
+    return {fx:S.x+REACH*sx, fy:S.y+REACH*cy, bx:S.x-REACH*sx, by:S.y-REACH*cy}; };
+  function worldTick(){
+    if(!level) return;
+    const e=ends();
+    if(W.held>=0){ W.objs[W.held].x=e.fx; W.objs[W.held].y=e.fy; }
+    // each new contact of the extended back piston flips that toggle (red off <-> green on)
+    level.toggles.forEach(([tx,ty],i)=>{
+      const T=W.togs[i], c=S.pist.Toggle && Math.hypot(e.bx-tx,e.by-ty)<=TOG_R;
+      if(c && !T.contact) T.on=!T.on;
+      T.contact=c;
+    });
+    if(W.doneT==null && W.togs.every(t=>t.on) && W.objs.every(o=>o.goal>=0)) W.doneT=S.t;
+  }
+  function claw(close){
+    if(!level) return;
+    const e=ends();
+    if(close){
+      if(W.held>=0) return;
+      let best=-1, bd=GRAB;
+      W.objs.forEach((o,i)=>{ if(o.goal>=0) return; const d=Math.hypot(o.x-e.fx,o.y-e.fy); if(d<=bd){bd=d;best=i;} });
+      if(best>=0){ W.held=best; W.objs[best].held=true; }
+    } else if(W.held>=0){
+      const o=W.objs[W.held]; o.x=e.fx; o.y=e.fy; o.held=false; W.held=-1;
+      const gi=level.goals.findIndex(g=>Math.hypot(o.x-g[0],o.y-g[1])<=g[2]);
+      if(gi>=0) o.goal=gi;
+    }
+    worldTick();
+  }
+  const frames=[], results=[], warns=[];
+  let PrevE_global = 0;          // FIX: `int PrevE` in movement.cpp, a double here
+  let curStep = -1;
+  class Abort {}
+
+  const pidOf = n => pids.find(p=>p.name===n) || pids[0] || {kp:0,ki:0,kd:0};
+  const toInt = v => {
+    if(!Number.isFinite(v)){ warn(`Step ${curStep+1}: Move() received an infinite value because AccT is 0. On the robot this is undefined behavior.`); v = Number.isNaN(v)?0:Math.sign(v)*1e6; }
+    return Math.trunc(v);       // Move(int,int) / int Speed
+  };
+  const warn = m => { if(!warns.includes(m)) warns.push(m); };
+  const copysign = (a,b) => Math.abs(a)*((b<0||Object.is(b,-0))?-1:1);
+  const heading = () => { let h=(S.rot-S.gz)%360; if(h<0) h+=360; return h; };
+  function chassis(){
+    const L=Math.abs(S.dl-S.zl), R=Math.abs(S.dr-S.zr);     // get_dist_travelled() returns fabs()
+    const Avg=(L+R)/2;                                       // FIX: double Left/Right/Avg, no int truncation
+    return {Left:L,Right:R,Avg,HDG:heading()};
+  }
+  function record(){
+    worldTick();
+    frames.push({t:S.t,x:S.x,y:S.y,th:cfg.startH+S.rot,hdg:heading(),err:S.err,cmdL:S.cmdL,cmdR:S.cmdR,
+      avg:chassis().Avg,dT:S.dT,tgt:S.tgt==null?null:cfg.startH+S.gz+S.tgt,step:S.step,roller:S.roller,
+      p:(S.pist.Claw?1:0)|(S.pist.Toggle?2:0),
+      objs:W.objs.map(o=>[o.x,o.y,o.goal>=0?1:o.held?2:0]),togs:W.togs.map(t=>t.on)});
+  }
+  const sideStep = (v,m,V) => {
+    if(m==='volt'){ const vc=Math.max(-12,Math.min(12,V)); return v+(vc/12*vmax-v)*Math.min(1,PH/cfg.tau); }
+    return v - v*Math.min(1,PH/(m==='brake'?cfg.tauBrake:cfg.tauCoast));
+  };
+  function advance(sec){
+    const n = Math.round(sec/PH);
+    for(let k=0;k<n;k++){
+      S.vl = sideStep(S.vl,S.mL,S.VL);
+      S.vr = sideStep(S.vr,S.mR,S.VR);
+      const v=(S.vl+S.vr)/2, w=(S.vl-S.vr)/cfg.track*180/Math.PI;   // deg/s, clockwise positive
+      S.rot += w*PH;
+      const th=(cfg.startH+S.rot)*Math.PI/180;
+      S.x += v*Math.sin(th)*PH; S.y += v*Math.cos(th)*PH;
+      S.x=Math.max(RB,Math.min(144-RB,S.x)); S.y=Math.max(RB,Math.min(144-RB,S.y));   // field walls (wheels slip, encoders keep counting)
+      S.dl += S.vl*PH; S.dr += S.vr*PH;
+      S.tick++; S.t = S.tick*PH;
+      if(S.tick%SAMPLE_EVERY===0) record();
+      if(S.tick>=maxTicks) throw new Abort();
+    }
+  }
+  const wait = ms => advance(ms/1000);
+  const timerReset = () => { S.t0 = S.t; };
+  const timerValue = () => S.t - S.t0;
+  const setPrevE = v => { PrevE_global = v; };
+  const noteErr = e => { S.err = e; };
+  const wrap180 = e => { while(e>180) e-=360; while(e<-180) e+=360; return e; };   // FIX: wrap both sides
+
+  function Zeroing(dist,HDG){ if(dist){S.zl=S.dl;S.zr=S.dr;} if(HDG){S.gz=S.rot;} }
+  function Move(left,right){
+    left=toInt(left); right=toInt(right);
+    S.mL=S.mR='volt'; S.VL=left/100*cfg.maxVolt; S.VR=right/100*cfg.maxVolt; S.cmdL=left; S.cmdR=right;
+  }
+  function BStop(){ S.mL=S.mR='brake'; S.VL=S.VR=0; S.cmdL=S.cmdR=0; }
+  function CStop(){ S.mL=S.mR='coast'; S.VL=S.VR=0; S.cmdL=S.cmdR=0; }
+
+  function MoveEncoderPID(K,Speed,dist,AccT,ABSHDG,brake){
+    Speed=Math.trunc(Speed);
+    let CSpeed=0; Zeroing(true,false); let SV=chassis();
+    let PVal=0,IVal=0,DVal=0,LGV=0,Correction=0; setPrevE(0);
+    S.dT=Math.abs(dist);
+    while(Math.abs(SV.Avg) <= Math.abs(dist)){
+      if(Math.abs(CSpeed)<Math.abs(Speed)) CSpeed+=Speed/AccT*0.02;
+      SV=chassis();
+      LGV=wrap180(SV.HDG-ABSHDG);
+      noteErr(LGV);
+      PVal=K.kp*LGV; IVal=IVal+K.ki*LGV*0.02; DVal=K.kd*(LGV-PrevE_global);
+      Correction=PVal+IVal+DVal/0.02;
+      Move(CSpeed-Correction,CSpeed+Correction);
+      setPrevE(LGV);
+      wait(20);
+    }
+    const out='reached distance';
+    if(brake){BStop();wait(120);} else CStop();
+    return out;
+  }
+
+  function MovePID(K,Dv,Speed,dist,AccT,ABSHDG,brake,time){
+    Speed=Math.trunc(Speed);
+    let CSpeed=0; Zeroing(true,false); let SV=chassis();
+    let PVal=0,IVal=0,DVal=0,Correction=0;
+    let ie=SV.HDG-ABSHDG; while(ie>180) ie-=360; while(ie<-180) ie+=360;
+    let PrevE=ie;
+    let PrevDE=0,PDVal=0,IDVal=0,DDVal=0;
+    timerReset(); let prev=timerValue();
+    S.dT=Math.abs(dist);
+    while((Math.abs(dist)-Math.abs(SV.Avg))>0.5 && timerValue()<=time){
+      const cur=timerValue(); let dt=cur-prev; prev=cur; if(dt<0.01) dt=0.01;
+      SV=chassis();
+      const remaining=dist-Math.abs(SV.Avg);
+      const de=Math.abs(remaining);
+      PDVal=Speed*(de/Math.abs(dist))*Dv.kp;
+      IDVal+=Dv.ki*de*dt;
+      DDVal=Dv.kd*(de-PrevDE);
+      PrevDE=de;
+      let base=PDVal+IDVal+DDVal;
+      const MIN=3.0;
+      if(Math.abs(dist)<MIN){
+        const lim=Math.abs(Speed)*(0.3+0.7*(Math.abs(dist)/MIN));
+        base=copysign(Math.min(Math.abs(base),lim),Speed);
+        if(Math.abs(remaining)<MIN/2) base*=0.8;
+      }
+      base=copysign(Math.max(Math.abs(base),15.0),Speed);
+      const ramp=Speed/AccT, maxChange=Math.abs(ramp*dt);
+      if(Math.abs(CSpeed)<Math.abs(base)){
+        CSpeed+=copysign(maxChange,Speed);
+        if(Math.abs(CSpeed)>Math.abs(base)) CSpeed=base;
+      } else CSpeed=base;
+      let he=SV.HDG-ABSHDG; while(he>180) he-=360; while(he<-180) he+=360;
+      noteErr(he);
+      PVal=K.kp*he; IVal=IVal+K.ki*he*0.02; DVal=K.kd*(he-PrevE); PrevE=he;
+      Correction=PVal+IVal+DVal/0.02;
+      const scale=Math.abs(Speed)>0?Math.min(Math.abs(CSpeed)/Math.abs(Speed),1):1;
+      Correction*=scale;
+      let l=CSpeed-Correction, r=CSpeed+Correction;
+      const mx=Math.max(Math.abs(l),Math.abs(r));
+      if(mx>100){ l=l/mx*100; r=r/mx*100; }
+      Move(l,r);
+      wait(20);
+    }
+    const out = timerValue()>time ? `timed out (${time} s)` : 'reached distance';
+    if(brake){BStop();wait(80);} else CStop();
+    return out;
+  }
+
+  function TurnMaxTimePID(K,DeltaAngle,TE,brake){
+    let CSpeed=0; Zeroing(true,false); let SV=chassis();
+    let PVal=0,IVal=0,DVal=0,LGV=0,Correction=0; setPrevE(0);
+    timerReset();
+    while(timerValue()<=TE){
+      SV=chassis();
+      LGV=wrap180(SV.HDG-DeltaAngle);
+      noteErr(LGV);
+      PVal=K.kp*LGV; IVal=IVal+K.ki*LGV*0.02; DVal=K.kd*(LGV-PrevE_global);
+      Correction=PVal+IVal+DVal/0.02;
+      Move(CSpeed-Correction,CSpeed+Correction);
+      setPrevE(LGV);
+      wait(20);
+    }
+    const out=`time up, ${Math.abs(LGV).toFixed(1)}° off target`;
+    if(brake){BStop();wait(180);} else CStop();
+    return out;
+  }
+
+  function MoveTimePID(K,Speed,TE,AccT,ABSHDG,brake){
+    Speed=Math.trunc(Speed);
+    let CSpeed=0; Zeroing(true,false); let SV=chassis();
+    let PVal=0,IVal=0,DVal=0,LGV=0,Correction=0; setPrevE(0);
+    timerReset();
+    while(timerValue()<=TE){
+      if(Math.abs(CSpeed)<Math.abs(Speed)) CSpeed+=Speed/AccT*0.02;
+      SV=chassis();
+      LGV=wrap180(SV.HDG-ABSHDG);
+      noteErr(LGV);
+      PVal=K.kp*LGV; IVal=IVal+K.ki*LGV*0.02; DVal=K.kd*(LGV-PrevE_global);
+      Correction=PVal+IVal+DVal/0.02;
+      Move(CSpeed-Correction,CSpeed+Correction);   // FIX: was Move(-CSpeed...), positive Speed now drives forward
+      setPrevE(LGV);
+      wait(20);
+    }
+    if(brake){BStop();wait(200);} else CStop();
+    return 'time up';
+  }
+
+  function MoveTime(Speed,TE,AccT,brake){
+    Speed=Math.trunc(Speed);
+    let CSpeed=0; Zeroing(true,false); timerReset();
+    while(timerValue()<=TE){
+      if(Math.abs(CSpeed)<Math.abs(Speed)) CSpeed+=Speed/AccT*0.02;
+      Move(CSpeed,CSpeed);
+      wait(20);
+    }
+    if(brake){BStop();wait(200);} else CStop();
+    return 'time up';
+  }
+
+  function runStep(st){
+    const a=st.a, n=k=>Number(a[k])||0;
+    if((a.AccT!==undefined) && n('AccT')<=0) warn(`Step ${curStep+1}: AccT must be greater than 0.`);
+    switch(st.fn){
+      case 'MoveEncoderPID':
+        return MoveEncoderPID(pidOf(a.KVals),n('Speed'),n('dist'),n('AccT'),n('ABSHDG'),!!a.brake);
+      case 'MovePID': return MovePID(pidOf(a.KVals),pidOf(a.Dvals),n('Speed'),n('dist'),n('AccT'),n('ABSHDG'),!!a.brake,n('time'));
+      case 'TurnMaxTimePID': return TurnMaxTimePID(pidOf(a.KVals),n('DeltaAngle'),n('TE'),!!a.brake);
+      case 'MoveTimePID': return MoveTimePID(pidOf(a.KVals),n('Speed'),n('TE'),n('AccT'),n('ABSHDG'),!!a.brake);
+      case 'MoveTime': return MoveTime(n('Speed'),n('TE'),n('AccT'),!!a.brake);
+      case 'Zeroing': Zeroing(!!a.dist,!!a.HDG); return 'done';
+      case 'wait': wait(n('ms')); return 'done';
+      case 'RunRoller': S.roller=n('val'); return 'done';
+      case 'Piston': S.pist[a.device]=!!a.value; if(a.device==='Claw') claw(!!a.value); else worldTick(); return 'done';
+      case 'BStop': BStop(); return 'done';
+      case 'CStop': CStop(); return 'done';
+    }
+    return 'unknown';
+  }
+
+  record();
+  let aborted=false;
+  for(let i=0;i<steps.length;i++){
+    curStep=i; S.step=i;
+    const st=steps[i];
+    S.err=null; S.dT=null;
+    S.tgt = HEADING_KEY[st.fn] ? Number(st.a[HEADING_KEY[st.fn]])||0 : null;
+    const r={i,fn:st.fn,t0:S.t};
+    try{ r.reason=runStep(st); }
+    catch(e){
+      if(!(e instanceof Abort)) throw e;
+      r.reason=`simulation time limit (${cfg.maxTime} s)`;
+      if(st.fn==='MoveEncoderPID') warn(`Step ${i+1}: MoveEncoderPID never reached its distance. It has no timeout, so the real robot would keep driving.`);
+      else warn(`The simulation time limit (${cfg.maxTime} s) ran out during step ${i+1}.`);
+      aborted=true;
+    }
+    r.t1=S.t; r.hdg=heading(); r.avg=chassis().Avg;
+    results.push(r);
+    if(aborted) break;
+  }
+  if(!aborted){
+    S.step=steps.length; S.err=null; S.dT=null; S.tgt=null;
+    try{ advance(0.5); }catch(e){}
+  }
+  return {frames,results,warns,vmax,world:{doneT:W.doneT,scored:W.objs.filter(o=>o.goal>=0).length,total:W.objs.length,togOn:W.togs.filter(t=>t.on).length,togTotal:W.togs.length}};
+}
+
+// ---------- helpers ----------
+const $ = s=>document.querySelector(s);
+const el = (tag,cls,txt)=>{const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e;};
+const fmtArg = (v,type)=> type==='bool' ? (v?'true':'false') : type==='pid'||type==='sel' ? v : String(Number(v)||0);
+function callStr(st){
+  const p=FN[st.fn].params;
+  if(st.fn==='wait') return `wait(${Number(st.a.ms)||0}, msec)`;
+  if(st.fn==='Piston') return `${st.a.device}.set(${st.a.value?'true':'false'})`;
+  return `${st.fn}(${p.map(q=>fmtArg(st.a[q[0]],q[1])).join(', ')})`;
+}
+let cssCache=null;
+const css = n => { if(!cssCache) cssCache=getComputedStyle(document.documentElement); return cssCache.getPropertyValue(n).trim(); };
+
+// ---------- steps UI ----------
+const stepsEl=$('#steps');
+function renderSteps(){
+  stepsEl.innerHTML='';
+  state.steps.forEach((st,i)=>{
+    const card=el('div','step'); card.dataset.i=i;
+    const head=el('div','step-head');
+    const num=el('span','num',String(i+1)); num.title='Jump to this step';
+    num.onclick=()=>seekStep(i);
+    const sel=el('select');
+    Object.keys(FN).forEach(k=>{const o=el('option',null,k); o.value=k; if(k===st.fn) o.selected=true; sel.appendChild(o);});
+    sel.onchange=()=>{const old=st.a; st.fn=sel.value; st.a={...clone(FN[st.fn].def)}; for(const k in st.a) if(k in old) st.a[k]=old[k]; renderSteps(); changed();};
+    const b=(t,title,f)=>{const x=el('button','icon',t); x.title=title; x.onclick=f; return x;};
+    head.append(num,sel,
+      b('↑','Move up',()=>{if(i>0){[state.steps[i-1],state.steps[i]]=[state.steps[i],state.steps[i-1]];renderSteps();changed();}}),
+      b('↓','Move down',()=>{if(i<state.steps.length-1){[state.steps[i+1],state.steps[i]]=[state.steps[i],state.steps[i+1]];renderSteps();changed();}}),
+      b('⧉','Duplicate',()=>{state.steps.splice(i+1,0,clone(st));renderSteps();changed();}),
+      b('✕','Delete',()=>{state.steps.splice(i,1);renderSteps();changed();}));
+    card.appendChild(head);
+    const params=FN[st.fn].params;
+    if(params.length){
+      const f=el('div','fields');
+      params.forEach(([key,type,extra])=>{
+        let lab, inp;
+        if(type==='bool' && st.fn==='Piston' && key==='value'){
+          lab=el('label'); lab.append(document.createTextNode('action'));
+          inp=el('select');
+          [['true','Activate'],['false','Deactivate']].forEach(([v,t])=>{ const o=el('option',null,t); o.value=v; if(String(!!st.a[key])===v) o.selected=true; inp.appendChild(o); });
+          inp.onchange=()=>{st.a[key]=inp.value==='true';changed();};
+          lab.appendChild(inp);
+        } else if(type==='bool'){
+          lab=el('label','chk'); inp=el('input'); inp.type='checkbox'; inp.checked=!!st.a[key];
+          inp.onchange=()=>{st.a[key]=inp.checked;changed();};
+          lab.append(inp,document.createTextNode(key));
+        } else {
+          lab=el('label'); lab.append(document.createTextNode(key+(type==='num'&&extra?` (${extra})`:'')));
+          if(type==='pid'||type==='sel'){
+            inp=el('select');
+            const opts=type==='pid'?state.pids.map(p=>p.name):extra;
+            opts.forEach(n=>{const o=el('option',null,n); o.value=n; if(n===st.a[key]) o.selected=true; inp.appendChild(o);});
+            if(type==='pid' && !opts.includes(st.a[key]) && opts.length){ st.a[key]=opts[0]; }
+            inp.onchange=()=>{st.a[key]=inp.value;changed();};
+          } else {
+            inp=el('input'); inp.type='number'; inp.step='any'; inp.value=st.a[key];
+            inp.oninput=()=>{const v=parseFloat(inp.value); if(!Number.isNaN(v)){st.a[key]=v;changed();}};
+          }
+          lab.appendChild(inp);
+        }
+        f.appendChild(lab);
+      });
+      card.appendChild(f);
+    }
+    stepsEl.appendChild(card);
+  });
+  highlightStep(curFrame()?curFrame().step:-1, true);
+}
+Object.keys(FN).forEach(k=>{const o=el('option',null,k); o.value=k; $('#addType').appendChild(o);});
+$('#addBtn').onclick=()=>{
+  const fn=$('#addType').value; const a=clone(FN[fn].def);
+  for(const [k,t] of FN[fn].params) if(t==='pid' && !state.pids.some(p=>p.name===a[k]) && state.pids[0]) a[k]=state.pids[0].name;
+  state.steps.push({fn,a}); renderSteps(); changed();
+  stepsEl.scrollTop=stepsEl.scrollHeight;
+};
+
+// ---------- PID UI ----------
+function renderPids(){
+  const tb=$('#pids'); tb.innerHTML='';
+  state.pids.forEach((p,i)=>{
+    const tr=el('tr');
+    const name=el('input'); name.type='text'; name.value=p.name;
+    name.onchange=()=>{
+      const nn=name.value.trim().replace(/[^A-Za-z0-9_]/g,'_')||p.name;
+      if(state.pids.some((q,j)=>j!==i&&q.name===nn)){name.value=p.name;return;}
+      state.steps.forEach(s=>{for(const k of ['KVals','Dvals']) if(s.a[k]===p.name) s.a[k]=nn;});
+      p.name=nn; name.value=nn; renderSteps(); changed();
+    };
+    const td0=el('td'); td0.appendChild(name); tr.appendChild(td0);
+    for(const k of ['kp','ki','kd']){
+      const inp=el('input'); inp.type='number'; inp.step='any'; inp.value=p[k];
+      inp.oninput=()=>{const v=parseFloat(inp.value); if(!Number.isNaN(v)){p[k]=v;changed();}};
+      const td=el('td'); td.appendChild(inp); tr.appendChild(td);
+    }
+    const del=el('button','icon','✕'); del.title='Delete set';
+    del.onclick=()=>{ if(state.pids.length<=1) return; state.pids.splice(i,1); renderPids(); renderSteps(); changed(); };
+    const td=el('td'); td.appendChild(del); tr.appendChild(td);
+    tb.appendChild(tr);
+  });
+}
+$('#addPid').onclick=()=>{
+  let n=1; while(state.pids.some(p=>p.name==='Set'+n)) n++;
+  state.pids.push({name:'Set'+n,kp:1,ki:0,kd:0.1}); renderPids(); renderSteps(); changed();
+};
+
+// ---------- config UI ----------
+function renderCfg(){
+  const c=$('#cfg'); c.innerHTML='';
+  CFG_FIELDS.forEach(([k,label])=>{
+    const lab=el('label',null,label), inp=el('input');
+    inp.type='number'; inp.step='any'; inp.value=state.cfg[k]; inp.id='cfg_'+k;
+    inp.oninput=()=>{const v=parseFloat(inp.value); if(!Number.isNaN(v)){state.cfg[k]=v;changed();}};
+    lab.appendChild(inp); c.appendChild(lab);
+  });
+  const reset=el('button',null,'Reset to defaults'); reset.style.gridColumn='1/-1';
+  reset.onclick=()=>{ CFG_FIELDS.forEach(([k,,d])=>state.cfg[k]=d); renderCfg(); changed(); };
+  c.appendChild(reset);
+}
+// free-play start position (levels set their own start)
+function renderStart(){
+  for(const k of ['startX','startY','startH']) $('#'+k).value=state.cfg[k];
+}
+for(const k of ['startX','startY','startH']){
+  $('#'+k).addEventListener('input',e=>{ const v=parseFloat(e.target.value); if(!Number.isNaN(v)){ state.cfg[k]=v; simT=0; changed(); } });
+}
+
+// ---------- sim + playback ----------
+let sim={frames:[],results:[],warns:[],errors:[],steps:[]};
+let simT=0, playing=false, lastTs=0, simTimer=null;
+const tEnd=()=>sim.frames.length?sim.frames[sim.frames.length-1].t:0;
+function frameAt(t){
+  const f=sim.frames; if(!f.length) return null;
+  let i=Math.round(t/0.01); i=Math.max(0,Math.min(f.length-1,i));
+  return f[i];
+}
+const curFrame=()=>frameAt(simT);
+
+function resim(){
+  if(state.mode==='code') parseNow();
+  const prog=activeProgram();
+  if(prog.errors.length) sim={frames:[],results:[],warns:[],errors:prog.errors,steps:[]};
+  else {
+    try{ sim={...simulate(prog.steps,prog.pids,effCfg(),curLevel()),errors:[],steps:prog.steps,level:curLevel()}; }
+    catch(e){ sim={frames:[],results:[],warns:[],errors:[{line:0,msg:'Simulation error: '+e.message}],steps:[]}; }
+  }
+  simT=Math.min(simT,tEnd());
+  renderResults(); drawAll();
+}
+function changed(){ if(state.mode==='blocks') state.codeStale=true; save(); clearTimeout(simTimer); simTimer=setTimeout(resim,120); }
+
+function renderResults(){
+  const w=$('#warns'); w.innerHTML='';
+  if(sim.errors.length) w.appendChild(errorBox(sim.errors,'Simulation not run. Fix these errors:'));
+  if(sim.warns.length){
+    const box=el('div','warns'); const ul=el('ul');
+    sim.warns.forEach(m=>ul.appendChild(el('li',null,m))); box.appendChild(ul); w.appendChild(box);
+  }
+  const tb=$('#results'); tb.innerHTML='';
+  sim.results.forEach(r=>{
+    const tr=el('tr','res'); tr.dataset.i=r.i;
+    const st=sim.steps[r.i];
+    [String(r.i+1),callStr(st),r.t0.toFixed(2),(r.t1-r.t0).toFixed(2),r.reason,r.hdg.toFixed(1)+'°',String(+r.avg.toFixed(2))]
+      .forEach((v,j)=>{const td=el('td',j===1?'call':null,v); tr.appendChild(td);});
+    tr.onclick=()=>seekStep(r.i);
+    tb.appendChild(tr);
+  });
+}
+function seekStep(i){
+  const r=sim.results.find(x=>x.i===i); if(!r) return;
+  simT=r.t0; playing=false; updPlayBtn(); drawAll();
+}
+
+function loop(ts){
+  if(playing){
+    const dt=lastTs?(ts-lastTs)/1000:0;
+    simT+=dt*parseFloat($('#speed').value);
+    if(simT>=tEnd()){ simT=tEnd(); playing=false; updPlayBtn(); }
+    drawAll();
+  }
+  lastTs=ts;
+  requestAnimationFrame(loop);
+}
+function updPlayBtn(){ $('#playBtn').textContent=playing?'Pause':'Play'; }
+$('#runBtn').onclick=()=>{ clearTimeout(simTimer); resim(); simT=0; playing=true; updPlayBtn(); };
+$('#playBtn').onclick=()=>{ if(!playing && simT>=tEnd()) simT=0; playing=!playing; updPlayBtn(); };
+$('#scrub').oninput=e=>{ simT=tEnd()*e.target.value/1000; playing=false; updPlayBtn(); drawAll(); };
+
+// ---------- drawing ----------
+function fit(cv){
+  const r=cv.getBoundingClientRect(), d=window.devicePixelRatio||1;
+  const W=Math.max(1,Math.round(r.width*d)), H=Math.max(1,Math.round(r.height*d));
+  if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
+  const ctx=cv.getContext('2d'); ctx.setTransform(d,0,0,d,0,0);
+  return {ctx,w:r.width,h:r.height};
+}
+let lastStepHL=null;
+function highlightStep(i,force){
+  if(i===lastStepHL && !force) return; lastStepHL=i;
+  document.querySelectorAll('.step').forEach(c=>c.classList.toggle('active',+c.dataset.i===i));
+  document.querySelectorAll('tr.res').forEach(c=>c.classList.toggle('active',+c.dataset.i===i));
+  if(playing){ const c=stepsEl.querySelector(`.step[data-i="${i}"]`); if(c){ const top=c.offsetTop-stepsEl.offsetTop; if(top<stepsEl.scrollTop||top>stepsEl.scrollTop+stepsEl.clientHeight-60) stepsEl.scrollTop=top-8; } }
+}
+function drawAll(){
+  cssCache=null;
+  drawField(); drawCharts(); updReadout();
+  const te=tEnd(); $('#scrub').value=te?Math.round(simT/te*1000):0;
+}
+
+const fieldCv=$('#field');
+function drawField(){
+  const {ctx,w}=fit(fieldCv), s=w/144;
+  const P=(x,y)=>[x*s,(144-y)*s];
+  ctx.fillStyle=css('--field'); ctx.fillRect(0,0,w,w);
+  ctx.strokeStyle=css('--tile'); ctx.lineWidth=1;
+  for(let i=1;i<6;i++){ const g=i*24*s; ctx.beginPath(); ctx.moveTo(g,0); ctx.lineTo(g,w); ctx.moveTo(0,g); ctx.lineTo(w,g); ctx.stroke(); }
+  ctx.lineWidth=2; ctx.strokeRect(1,1,w-2,w-2);
+  const F=sim.frames;
+  if(!F.length){
+    if(sim.errors.length){
+      ctx.fillStyle=css('--err'); ctx.font='600 14px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(`Code has ${sim.errors.length} error${sim.errors.length>1?'s':''}. Simulation not run.`,w/2,w/2-10);
+      ctx.font='12px system-ui,sans-serif'; { const m=errText(sim.errors[0]); ctx.fillText(m.length>60?m.slice(0,59)+"…":m,w/2,w/2+12); }
+    }
+    return;
+  }
+  const LV=sim.level, cur=curFrame();
+  if(LV){
+    LV.goals.forEach(([gx,gy,gr])=>{ const [x,y]=P(gx,gy); ctx.fillStyle=css('--goal'); ctx.globalAlpha=0.18; ctx.beginPath(); ctx.arc(x,y,gr*s,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle=css('--goal'); ctx.lineWidth=2.5; ctx.stroke(); });
+    LV.toggles.forEach(([tx,ty],i)=>{
+      const on=cur.togs[i], horiz=(ty<=0.5||ty>=143.5), tw=10*s, th2=3.5*s, [px,py]=P(tx,ty);
+      ctx.fillStyle=on?css('--tog-on'):css('--tog-off');
+      if(horiz) ctx.fillRect(px-tw/2,ty<=0.5?py-th2:py,tw,th2); else ctx.fillRect(tx<=0.5?px:px-th2,py-tw/2,th2,tw);
+      ctx.fillStyle=css('--text-2'); ctx.font='600 11px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      if(!horiz) ctx.textAlign=tx<=0.5?'left':'right';
+      const lx=horiz?px:(tx<=0.5?px+6:px-6), ly=horiz?(ty<=0.5?py-th2-9:py+th2+9):py-tw/2-9;
+      const nm=LV.toggles.length>1?`TOGGLE ${i+1}`:'TOGGLE';
+      ctx.fillText(`${nm} ${on?'ON':'OFF'}`,lx,ly);
+    });
+  }
+  // planned path
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.strokeStyle=css('--muted'); ctx.globalAlpha=0.55; ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
+  ctx.beginPath(); F.forEach((f,i)=>{const [x,y]=P(f.x,f.y); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.stroke();
+  ctx.setLineDash([]); ctx.globalAlpha=1;
+  // travelled path
+  const ci=F.indexOf(cur);
+  ctx.strokeStyle=css('--s1'); ctx.lineWidth=2.5;
+  ctx.beginPath(); for(let i=0;i<=ci;i++){const [x,y]=P(F[i].x,F[i].y); i?ctx.lineTo(x,y):ctx.moveTo(x,y);} ctx.stroke();
+  // step start markers
+  ctx.font='600 11px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  sim.results.forEach(r=>{
+    if(!['MoveEncoderPID','MovePID','TurnMaxTimePID','MoveTimePID','MoveTime'].includes(r.fn)) return;
+    const f=frameAt(r.t0); const [x,y]=P(f.x,f.y);
+    ctx.fillStyle=css('--surface'); ctx.strokeStyle=css('--text-2'); ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=css('--text'); ctx.fillText(String(r.i+1),x,y+0.5);
+  });
+  // target heading
+  if(cur.tgt!=null){
+    const [x,y]=P(cur.x,cur.y), a=cur.tgt*Math.PI/180, L=30*s;
+    ctx.strokeStyle=css('--s2'); ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.sin(a)*L,y-Math.cos(a)*L); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // game objects
+  if(LV) cur.objs.forEach(([ox,oy,st])=>{ const [x,y]=P(ox,oy); ctx.fillStyle=css('--obj'); ctx.strokeStyle=st===1?css('--goal'):css('--robot'); ctx.lineWidth=st===1?2.5:1.5; ctx.beginPath(); ctx.arc(x,y,3.5*s,0,Math.PI*2); ctx.fill(); ctx.stroke(); });
+  // robot
+  const [rx,ry]=P(cur.x,cur.y), R=state.cfg.robotSize*s/2;
+  ctx.save(); ctx.translate(rx,ry); ctx.rotate(cur.th*Math.PI/180);
+  ctx.fillStyle=css('--robot-fill'); ctx.strokeStyle=css('--robot'); ctx.lineWidth=2;
+  ctx.beginPath(); ctx.roundRect(-R,-R,2*R,2*R,3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=css('--robot');
+  const ww=Math.max(2,R*0.22);
+  [-0.75,0,0.75].forEach(k=>{ ctx.fillRect(-R-ww*0.5,k*R-R*0.18,ww,R*0.36); ctx.fillRect(R-ww*0.5,k*R-R*0.18,ww,R*0.36); });
+  const fy=-1;
+  // claw (front): open = wide prongs, closed = narrow
+  { const clawOn=!!(cur.p&1), gx=clawOn?R*0.32:R*0.62; ctx.strokeStyle=css('--robot'); ctx.lineWidth=Math.max(2,s*1.2);
+    ctx.beginPath(); ctx.moveTo(-gx,-R); ctx.lineTo(-gx,-R-1.6*s); ctx.moveTo(gx,-R); ctx.lineTo(gx,-R-1.6*s); ctx.stroke(); }
+  // toggle piston (back)
+  // always mounted; extends ~1 in when activated, with a green tip
+  { const out=(cur.p&2)?1.4*s:0.35*s, w=R*0.7, rod=Math.max(2,s*0.6);
+    ctx.fillStyle=css('--robot');
+    ctx.fillRect(-rod/2,R,rod,out);                        // rod
+    ctx.fillRect(-w/2,R+out,w,Math.max(2,s*0.7));          // pad
+    if(cur.p&2){ ctx.fillStyle=css('--tog-on'); ctx.fillRect(-w/2,R+out,w,Math.max(2,s*0.7)); } }
+  ctx.fillStyle=css('--s1');
+  ctx.beginPath(); ctx.moveTo(0,fy*R*0.85); ctx.lineTo(-R*0.45,fy*R*0.2); ctx.lineTo(R*0.45,fy*R*0.2); ctx.closePath(); ctx.fill();
+  if(cur.roller){ ctx.strokeStyle=css('--s2'); ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-R*0.7,fy*R); ctx.lineTo(R*0.7,fy*R); ctx.stroke(); }
+  ctx.restore();
+  // placing hint
+  if(placing){ ctx.fillStyle=css('--text'); ctx.textAlign='left'; ctx.font='12px system-ui,sans-serif'; ctx.fillText('Click the field to set the start position',8,14); }
+}
+
+let placing=false;
+$('#placeBtn').onclick=()=>{ placing=!placing; fieldCv.classList.toggle('placing',placing); $('#placeBtn').textContent=placing?'Cancel':'Place on field'; drawAll(); };
+fieldCv.addEventListener('click',e=>{
+  if(!placing || curLevel()) return;
+  const r=fieldCv.getBoundingClientRect();
+  state.cfg.startX=+((e.clientX-r.left)/r.width*144).toFixed(1);
+  state.cfg.startY=+(144-(e.clientY-r.top)/r.height*144).toFixed(1);
+  placing=false; fieldCv.classList.remove('placing'); $('#placeBtn').textContent='Place on field';
+  renderStart(); simT=0; changed();
+});
+
+function updReadout(){
+  const f=curFrame(), d=$('#readout');
+  if(!f){ d.innerHTML=''; return; }
+  const st=sim.steps[f.step];
+  const rows=[
+    ['Time',f.t.toFixed(2)+' s'],
+    ['Step',stepLabel(f)],
+    ['Call',st?callStr(st):'none'],
+    ...(state.mode==='code'&&st&&st.line?[['Code line',String(st.line)]]:[]),
+    ['Position',`${f.x.toFixed(1)}, ${f.y.toFixed(1)} in`],
+    ['Heading',f.hdg.toFixed(1)+'°'],
+    ['Heading error',f.err==null?'none':f.err.toFixed(1)+'°'],
+    ['Distance',`${+f.avg.toFixed(1)} in`+(f.dT!=null?` of ${f.dT}`:'')],
+    ['Motor power',`L ${+f.cmdL.toFixed(0)}%, R ${+f.cmdR.toFixed(0)}%`],
+    ['Roller',f.roller?`${f.roller}%`:'off'],
+    ['Claw',(f.p&1)?'closed':'open'],
+    ['Toggle piston',(f.p&2)?'extended':'retracted'],
+    ['Top speed',sim.vmax?sim.vmax.toFixed(0)+' in/s':''],
+  ];
+  d.innerHTML='';
+  rows.forEach(([k,v])=>{ d.appendChild(el('dt',null,k)); d.appendChild(el('dd',k==='Call'?'call':null,v)); });
+  highlightStep(f.step);
+  updObjectives(f);
+  if(stage.classList.contains('fs')) updFsSide(f);
+}
+
+// ---------- charts ----------
+const CHARTS=[
+  {title:'Heading error (°)',series:[{k:'err',c:'--s1',label:'error'}],zero:true},
+  {title:'Motor power (%)',series:[{k:'cmdL',c:'--s1',label:'left'},{k:'cmdR',c:'--s2',label:'right'}],zero:true},
+  {title:'Distance driven (in)',series:[{k:'avg',c:'--s1',label:'measured'},{k:'dT',c:'--text-2',label:'target',dash:true}]},
+];
+const chartEls=CHARTS.map((c,ci)=>{
+  const wrap=el('div','chart'); wrap.appendChild(el('h3',null,c.title));
+  const lg=el('div','legend');
+  if(c.series.length>1) c.series.forEach(s=>{const sp=el('span'); const i=el('i',s.dash?'dash':null); i.style.background=`var(${s.c})`; sp.append(i,document.createTextNode(s.label)); lg.appendChild(sp);});
+  wrap.appendChild(lg);
+  const cv=el('canvas'); wrap.appendChild(cv);
+  const tip=el('div','tip'); wrap.appendChild(tip);
+  $('#charts').appendChild(wrap);
+  const o={cv,tip,hoverT:null,cfg:c,geom:null};
+  cv.addEventListener('mousemove',e=>{ if(!o.geom) return; const r=cv.getBoundingClientRect(); o.hoverT=o.geom.inv(e.clientX-r.left); drawChart(o); });
+  cv.addEventListener('mouseleave',()=>{ o.hoverT=null; tip.style.display='none'; drawChart(o); });
+  cv.addEventListener('click',e=>{ if(!o.geom) return; const r=cv.getBoundingClientRect(); simT=Math.max(0,Math.min(tEnd(),o.geom.inv(e.clientX-r.left))); playing=false; updPlayBtn(); drawAll(); });
+  return o;
+});
+function niceTicks(min,max,n){
+  const span=max-min||1, raw=span/n, mag=10**Math.floor(Math.log10(raw)), f=raw/mag;
+  const step=(f<1.5?1:f<3?2:f<7?5:10)*mag, out=[];
+  for(let v=Math.ceil(min/step)*step; v<=max+step*1e-6; v+=step) out.push(+v.toFixed(8));
+  return out;
+}
+function drawCharts(){ chartEls.forEach(drawChart); }
+function drawChart(o){
+  const {ctx,w,h}=fit(o.cv), F=sim.frames, c=o.cfg;
+  ctx.clearRect(0,0,w,h);
+  if(!F.length) return;
+  const pad={l:40,r:8,t:8,b:20}, pw=w-pad.l-pad.r, ph=h-pad.t-pad.b, te=tEnd()||1;
+  let lo=Infinity,hi=-Infinity;
+  F.forEach(f=>c.series.forEach(s=>{const v=f[s.k]; if(v!=null){ if(v<lo)lo=v; if(v>hi)hi=v; }}));
+  if(c.zero){lo=Math.min(lo,0);hi=Math.max(hi,0);}
+  if(!Number.isFinite(lo)){lo=-1;hi=1;}
+  if(hi-lo<1e-6){lo-=1;hi+=1;}
+  const yt=niceTicks(lo,hi,4); lo=Math.min(lo,yt[0]); hi=Math.max(hi,yt[yt.length-1]);
+  const X=t=>pad.l+t/te*pw, Y=v=>pad.t+(hi-v)/(hi-lo)*ph;
+  o.geom={inv:px=>Math.max(0,Math.min(te,(px-pad.l)/pw*te))};
+  ctx.font='11px system-ui,sans-serif'; ctx.fillStyle=css('--muted'); ctx.strokeStyle=css('--border'); ctx.lineWidth=1;
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  yt.forEach(v=>{ const y=Math.round(Y(v))+0.5; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke(); ctx.fillText(String(v),pad.l-5,y); });
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  niceTicks(0,te,6).forEach(t=>ctx.fillText(t+'s',X(t),h-pad.b+5));
+  // step boundaries
+  ctx.globalAlpha=0.5; ctx.setLineDash([2,3]);
+  sim.results.forEach(r=>{ if(r.t1-r.t0<0.005) return; const x=Math.round(X(r.t0))+0.5; ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke(); });
+  ctx.setLineDash([]); ctx.globalAlpha=1;
+  if(c.zero && lo<0 && hi>0){ ctx.strokeStyle=css('--muted'); const y=Math.round(Y(0))+0.5; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke(); }
+  // series
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  c.series.forEach(s=>{
+    ctx.strokeStyle=css(s.c); ctx.lineWidth=s.dash?1.5:2; ctx.setLineDash(s.dash?[5,4]:[]);
+    ctx.beginPath(); let pen=false;
+    F.forEach(f=>{ const v=f[s.k]; if(v==null){pen=false;return;} const x=X(f.t),y=Y(v); pen?ctx.lineTo(x,y):ctx.moveTo(x,y); pen=true; });
+    ctx.stroke(); ctx.setLineDash([]);
+  });
+  // playhead
+  ctx.strokeStyle=css('--text'); ctx.lineWidth=1.5;
+  const px=Math.round(X(simT))+0.5; ctx.beginPath(); ctx.moveTo(px,pad.t); ctx.lineTo(px,pad.t+ph); ctx.stroke();
+  // hover
+  if(o.hoverT!=null){
+    const f=frameAt(o.hoverT), hx=Math.round(X(f.t))+0.5;
+    ctx.strokeStyle=css('--text-2'); ctx.lineWidth=1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(hx,pad.t); ctx.lineTo(hx,pad.t+ph); ctx.stroke(); ctx.setLineDash([]);
+    c.series.forEach(s=>{ const v=f[s.k]; if(v==null||s.dash) return; ctx.fillStyle=css(s.c); ctx.strokeStyle=css('--surface'); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(hx,Y(v),4,0,Math.PI*2); ctx.fill(); ctx.stroke(); });
+    o.tip.innerHTML='';
+    o.tip.appendChild(el('div',null,`t = ${f.t.toFixed(2)} s · step ${f.step+1}`));
+    c.series.forEach(s=>{ const d=el('div'); const i=el('i'); i.style.background=css(s.c); d.append(i,document.createTextNode(`${s.label}: ${f[s.k]==null?'n/a':(+f[s.k].toFixed(2))}`)); o.tip.appendChild(d); });
+    o.tip.style.display='block';
+    const tw=o.tip.offsetWidth; let left=hx+12; if(left+tw>w) left=hx-12-tw;
+    o.tip.style.left=Math.max(0,left)+'px'; o.tip.style.top=(o.cv.offsetTop+pad.t)+'px';
+  }
+}
+
+// ---------- code mode ----------
+const codeEl=$('#code');
+let parsed={steps:[],pids:[],errors:[]};
+const NUM_RE=/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?[fF]?$/;
+const DEVICES=['Claw','Toggle'];
+
+function genCode(steps){
+  return ['// One statement per line. PID sets from the table are already declared.']
+    .concat(steps.map(s=>callStr(s)+';')).join('\n')+'\n';
+}
+function mergePids(table,code){
+  const out=clone(table);
+  code.forEach(p=>{ const i=out.findIndex(q=>q.name===p.name); if(i>=0) out[i]=clone(p); else out.push(clone(p)); });
+  return out;
+}
+function activeProgram(){
+  if(state.mode==='code') return {steps:parsed.steps,pids:mergePids(state.pids,parsed.pids),errors:parsed.errors};
+  return {steps:state.steps,pids:state.pids,errors:[]};
+}
+const errText=e=>e.line?`Line ${e.line}: ${e.msg}`:e.msg;
+function errorBox(errors,title){
+  const box=el('div','errs');
+  if(title) box.appendChild(el('div',null,title));
+  const ul=el('ul');
+  errors.forEach(e=>{ const li=el('li',null,errText(e)); li.onclick=()=>gotoLine(e.line); ul.appendChild(li); });
+  box.appendChild(ul); return box;
+}
+function gotoLine(n){
+  if(!n||state.mode!=='code') return;
+  const lines=codeEl.value.split('\n'); let a=0;
+  for(let i=0;i<n-1&&i<lines.length;i++) a+=lines[i].length+1;
+  codeEl.focus(); codeEl.setSelectionRange(a,a+(lines[n-1]||'').length);
+  const lh=parseFloat(getComputedStyle(codeEl).lineHeight)||18; codeEl.scrollTop=Math.max(0,(n-3)*lh);
+}
+function lev(a,b){
+  a=a.toLowerCase(); b=b.toLowerCase();
+  const d=Array.from({length:a.length+1},(_,i)=>[i]);
+  for(let j=1;j<=b.length;j++) d[0][j]=j;
+  for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++)
+    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[a.length][b.length];
+}
+function suggest(name,cands){
+  let best=null,bd=Infinity;
+  cands.forEach(c=>{const x=lev(name,c); if(x<bd){bd=x;best=c;}});
+  return best && bd<=Math.max(2,Math.floor(best.length/3)) ? ` Did you mean '${best}'?` : '';
+}
+
+function parseCode(src, tablePids){
+  const errors=[], steps=[], pids=[];
+  const lineStarts=[0]; for(let i=0;i<src.length;i++) if(src[i]==='\n') lineStarts.push(i+1);
+  const lineAt=pos=>{ let lo=0,hi=lineStarts.length-1; while(lo<hi){const m=(lo+hi+1)>>1; if(lineStarts[m]<=pos) lo=m; else hi=m-1;} return lo+1; };
+  const err=(pos,msg)=>errors.push({line:lineAt(pos),msg});
+
+  // strip comments, keep positions
+  let s='';
+  for(let i=0;i<src.length;){
+    if(src.startsWith('//',i)){ while(i<src.length&&src[i]!=='\n'){s+=' ';i++;} }
+    else if(src.startsWith('/*',i)){
+      const j=src.indexOf('*/',i+2), end=j<0?src.length:j+2;
+      if(j<0) err(i,"Unterminated /* comment.");
+      for(;i<end;i++) s+=src[i]==='\n'?'\n':' ';
+    } else { s+=src[i]; i++; }
+  }
+  const blank=(a,b)=>{ s=s.slice(0,a)+s.slice(a,b).replace(/[^\n]/g,' ')+s.slice(b); };
+  // optional `void name() { ... }` wrapper
+  const wm=/\bvoid\s+[A-Za-z_]\w*\s*\(\s*(?:void)?\s*\)\s*\{/.exec(s);
+  if(wm){
+    blank(wm.index,wm.index+wm[0].length);
+    const k=s.search(/\}\s*$/);
+    if(k<0) err(s.length,"Missing closing '}' for the function.");
+    else blank(k,k+1);
+  }
+  // split into statements on top-level ';'
+  let depthP=0, depthB=0, start=0;
+  const stmts=[];
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(c==='(') depthP++;
+    else if(c===')'){ depthP--; if(depthP<0){ err(i,"Unmatched ')'."); depthP=0; } }
+    else if(c==='{') depthB++;
+    else if(c==='}'){ depthB--; if(depthB<0){ err(i,"Unexpected '}'."); depthB=0; } }
+    else if(c===';' && depthP===0 && depthB===0){ stmts.push({a:start,b:i}); start=i+1; }
+    else if(c===';' && depthP>0){ err(i,"Missing ')' before ';'."); depthP=0; stmts.push({a:start,b:i}); start=i+1; }
+  }
+  if(s.slice(start).trim()){
+    const a=start+s.slice(start).search(/\S/);
+    err(a,`Expected ';' at end of statement '${s.slice(a).trim().split('\n')[0].slice(0,50)}'.`);
+  }
+  const declared=new Set(tablePids.map(p=>p.name));
+  const codeDeclared=new Set();
+
+  for(const {a,b} of stmts){
+    const raw=s.slice(a,b); const off=raw.search(/\S/);
+    if(off<0) continue;                                  // empty statement
+    const pos=a+off;
+    const t=raw.trim().replace(/\s+/g,' ');
+    // PIDDataSet declaration
+    if(/^PIDDataSet\b/.test(t)){
+      const m=/^PIDDataSet ([A-Za-z_]\w*) ?=? ?\{(.*)\}$/.exec(t);
+      if(!m){ err(pos,"Bad PIDDataSet declaration. Use: PIDDataSet name={kp, ki, kd};"); continue; }
+      const [,name,body]=m;
+      if(codeDeclared.has(name)){ err(pos,`Redeclaration of '${name}'.`); continue; }
+      const parts=body.split(',').map(x=>x.trim()).filter(x=>x!=='');
+      const vals={kp:0,ki:0,kd:0}; let ok=true;
+      if(parts.length===0||parts.length>3){ err(pos,`PIDDataSet '${name}' needs 1 to 3 values {kp, ki, kd}, got ${parts.length}.`); continue; }
+      parts.forEach((x,i)=>{
+        const dm=/^\.(kp|ki|kd) ?= ?(.+)$/.exec(x);
+        const key=dm?dm[1]:['kp','ki','kd'][i], v=dm?dm[2]:x;
+        if(!NUM_RE.test(v)){ err(pos,`PIDDataSet '${name}': '${v}' is not a number.`); ok=false; return; }
+        vals[key]=parseFloat(v);
+      });
+      if(!ok) continue;
+      pids.push({name,...vals}); declared.add(name); codeDeclared.add(name);
+      continue;
+    }
+    const mm=/^([A-Za-z_][\w.:]*) ?\([^()]*\) ?(\S.*)$/.exec(t);
+    if(mm){ err(pos,`Expected ';' after '${t.slice(0,t.length-mm[2].length).trim()}'.`); continue; }
+    const m=/^(?:vex::)?([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))? ?\((.*)\)$/.exec(t);
+    if(!m){
+      if(/^[A-Za-z_][\w.:]*$/.test(t)) err(pos,`'${t}' is not a call. Add parentheses, e.g. ${t}();`);
+      else err(pos,`Can't read statement '${t.slice(0,60)}'.`);
+      continue;
+    }
+    const [,name,member,argStr]=m;
+    if(/[()]/.test(argStr)){ err(pos,`Nested calls and expressions are not supported in '${name}(...)'.`); continue; }
+    const args=argStr.trim()===''?[]:argStr.split(',').map(x=>x.trim());
+    if(args.some(x=>x==='')){ err(pos,`Empty argument in ${name}(...).`); continue; }
+    const step={fn:null,a:{},line:lineAt(pos)};
+    const asBool=(x,label)=>{ if(x==='true'||x==='1') return true; if(x==='false'||x==='0') return false; err(pos,`${label} must be true or false, got '${x}'.`); return null; };
+    const asNum=(x,label)=>{ if(NUM_RE.test(x)) return parseFloat(x); err(pos,`${label} must be a number, got '${x}'.`); return null; };
+
+    if(member){
+      if(!DEVICES.includes(name)){ err(pos,`'${name}' was not declared.${suggest(name,DEVICES)}`); continue; }
+      if(member!=='set'){ err(pos,`'${name}' (digital_out) has no member '${member}'.${suggest(member,['set'])}`); continue; }
+      if(args.length!==1){ err(pos,`${name}.set expects 1 argument (bool), got ${args.length}.`); continue; }
+      const v=asBool(args[0],`${name}.set argument`); if(v===null) continue;
+      step.fn='Piston'; step.a={device:name,value:v}; steps.push(step); continue;
+    }
+    if(name==='wait'){
+      if(args.length!==2){ err(pos,`wait expects 2 arguments (time, units), got ${args.length}. Example: wait(200, msec);`); continue; }
+      const v=asNum(args[0],'wait time'); if(v===null) continue;
+      const u=args[1].replace(/^vex::/,'');
+      const mult={msec:1,sec:1000,seconds:1000}[u];
+      if(mult===undefined){ err(pos,`Unknown time unit '${args[1]}'. Use msec or sec.`); continue; }
+      step.fn='wait'; step.a={ms:v*mult}; steps.push(step); continue;
+    }
+    const def=FN[name];
+    if(!def||name==='Piston'){
+      err(pos,`'${name}' was not declared in this scope.${suggest(name,[...Object.keys(FN).filter(k=>k!=='Piston'),'wait'])}`); continue;
+    }
+    const P=def.params, minArgs=name==='MovePID'?P.length-1:P.length;
+    if(args.length<minArgs||args.length>P.length){
+      err(pos,`${name} expects ${minArgs===P.length?P.length:minArgs+' or '+P.length} argument${P.length===1?'':'s'} (${P.map(p=>p[0]).join(', ')}), got ${args.length}.`); continue;
+    }
+    let ok=true;
+    P.forEach(([key,type],i)=>{
+      if(!ok) return;
+      if(i>=args.length){ step.a[key]=10000; return; }        // MovePID default time = 10000
+      const x=args[i], label=`${name} argument ${i+1} (${key})`;
+      let v;
+      if(type==='num') v=asNum(x,label);
+      else if(type==='bool') v=asBool(x,label);
+      else if(type==='pid'){
+        if(!/^[A-Za-z_]\w*$/.test(x)){ err(pos,`${label} must be a PIDDataSet name, got '${x}'.`); v=null; }
+        else if(!declared.has(x)){ err(pos,`'${x}' was not declared.${suggest(x,[...declared])}`); v=null; }
+        else v=x;
+      }
+      if(v===null) ok=false; else step.a[key]=v;
+    });
+    if(!ok) continue;
+    step.fn=name; steps.push(step);
+  }
+  errors.sort((x,y)=>x.line-y.line);
+  return {steps,pids,errors};
+}
+function renderCodeStatus(){
+  const box=$('#codeStatus'); box.innerHTML='';
+  if(parsed.errors.length) box.appendChild(errorBox(parsed.errors,`${parsed.errors.length} error${parsed.errors.length>1?'s':''}:`));
+  else box.appendChild(el('div','ok',`OK: ${parsed.steps.length} statement${parsed.steps.length===1?'':'s'}${parsed.pids.length?`, ${parsed.pids.length} PID set${parsed.pids.length>1?'s':''} declared`:''}.`));
+}
+function parseNow(){ parsed=parseCode(state.code,state.pids); renderCodeStatus(); }
+let parseTimer=null;
+codeEl.addEventListener('input',()=>{
+  state.code=codeEl.value; save();
+  clearTimeout(parseTimer);
+  parseTimer=setTimeout(resim,250);
+});
+codeEl.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){ e.preventDefault(); const a=codeEl.selectionStart; codeEl.setRangeText('    ',a,codeEl.selectionEnd,'end'); codeEl.dispatchEvent(new Event('input')); }
+});
+function updModeUI(){
+  const code=state.mode==='code';
+  $('#blocksView').hidden=code; $('#codeView').hidden=!code;
+  $('#modeBlocks').classList.toggle('on',!code); $('#modeCode').classList.toggle('on',code);
+  $('#modeBlocks').setAttribute('aria-pressed',String(!code)); $('#modeCode').setAttribute('aria-pressed',String(code));
+}
+function setMode(m){
+  if(m===state.mode) return;
+  if(m==='code'){
+    if(state.codeStale||!state.code.trim()){ state.code=genCode(state.steps); }
+    codeEl.value=state.code; state.codeStale=false; parseNow();
+  } else {
+    parseNow();
+    if(parsed.errors.length){ alert('Fix the code errors before switching to Blocks.'); return; }
+    state.steps=parsed.steps.map(({fn,a})=>({fn,a:clone(a)}));
+    parsed.pids.forEach(p=>{ const i=state.pids.findIndex(q=>q.name===p.name); if(i>=0) state.pids[i]=clone(p); else state.pids.push(clone(p)); });
+    renderPids(); renderSteps();
+  }
+  state.mode=m; updModeUI(); simT=0; playing=false; updPlayBtn();
+  save(); clearTimeout(simTimer); resim();
+}
+$('#modeBlocks').onclick=()=>setMode('blocks');
+$('#modeCode').onclick=()=>setMode('code');
+
+// ---------- level UI ----------
+const levelSel=$('#levelSel');
+[{name:'Free play'},...LEVELS].forEach((L,i)=>{ const o=el('option',null,L.name); o.value=i; levelSel.appendChild(o); });
+function updLevelUI(){
+  const L=curLevel();
+  levelSel.value=String(state.level||0);
+  $('#keyBtn').hidden=!L;
+  $('#levelDesc').textContent=L?L.desc:'No objectives. Build and tune any routine.';
+  $('#startCtl').hidden=!!L;
+}
+levelSel.onchange=()=>{
+  state.level=+levelSel.value; updLevelUI();
+  simT=0; playing=false; updPlayBtn(); save(); clearTimeout(simTimer); resim();
+};
+let lastObjKey='';
+function updObjectives(f){
+  const box=$('#objectives'), L=sim.level;
+  if(!L){ if(lastObjKey!=='none'){ box.innerHTML=''; $('#objectivesFs').innerHTML=''; lastObjKey='none'; } return; }
+  const scored=f.objs.filter(o=>o[2]===1).length, W=sim.world;
+  let res;
+  if(W.doneT!=null && W.doneT<=L.time) res=`Level complete in ${W.doneT.toFixed(2)} s`;
+  else if(W.doneT!=null) res=`Finished in ${W.doneT.toFixed(2)} s, over the ${L.time} s limit`;
+  else res=`Not complete (${W.scored}/${W.total} objects, ${W.togOn}/${W.togTotal} toggles)`;
+  const togOn=f.togs.filter(Boolean).length;
+  const key=[togOn,scored,res].join('|');
+  if(key===lastObjKey) return; lastObjKey=key;
+  box.innerHTML='';
+  const item=(ok,txt)=>{ const sp=el('span',ok?'done':null,(ok?'✓ ':'○ ')+txt); box.appendChild(sp); };
+  item(togOn===f.togs.length,f.togs.length>1?`Wall toggles ${togOn}/${f.togs.length}`:'Wall toggle');
+  item(scored===f.objs.length,`Objects scored ${scored}/${f.objs.length}`);
+  box.appendChild(el('span',null,`Time limit ${L.time} s`));
+  box.appendChild(el('span','result'+(W.doneT!=null&&W.doneT<=L.time?' done':''),res));
+  $('#objectivesFs').innerHTML=box.innerHTML;
+}
+
+// ---------- clear routine / restore PID defaults ----------
+$('#clearBtn').onclick=()=>{
+  if(!confirm(state.mode==='code'?'Clear all code in the editor?':'Remove every step from the routine?')) return;
+  if(state.mode==='code'){ state.code=''; codeEl.value=''; }
+  else { state.steps=[]; renderSteps(); }
+  simT=0; playing=false; updPlayBtn(); changed();
+};
+$('#resetPid').onclick=()=>{
+  if(!confirm('Restore TestPara, headingPID and distancePID to their default values and remove all other PID sets?')) return;
+  state.pids=clone(DEFAULT_PIDS);
+  state.steps.forEach(st=>{ for(const k of ['KVals','Dvals']) if(k in st.a && !state.pids.some(p=>p.name===st.a[k])) st.a[k]=state.pids[0].name; });
+  renderPids(); renderSteps(); changed();
+};
+
+// ---------- fullscreen field ----------
+function stepLabel(f){
+  if(f.step<0) return 'Not started';
+  if(f.step>=sim.steps.length) return 'Finished';
+  return `${f.step+1} of ${sim.steps.length}`;
+}
+let fsListKey='', fsCur=null;
+function updFsSide(f){
+  const key=sim.steps.map(callStr).join('\n');
+  const ol=$('#fsSteps');
+  if(key!==fsListKey){
+    fsListKey=key; fsCur=null; ol.innerHTML='';
+    sim.steps.forEach((st,i)=>{ const li=el('li',null,`${i+1}. ${callStr(st)}`); li.onclick=()=>seekStep(i); li.style.cursor='pointer'; ol.appendChild(li); });
+  }
+  const st=sim.steps[f.step];
+  $('#fsStepNo').textContent=f.step<0||f.step>=sim.steps.length?stepLabel(f):`Step ${stepLabel(f)}`;
+  $('#fsCall').textContent=st?callStr(st):'';
+  const dl=$('#fsStats'); dl.innerHTML='';
+  [['Time',f.t.toFixed(2)+' s'],['Heading',f.hdg.toFixed(1)+'°'],['Heading error',f.err==null?'none':f.err.toFixed(1)+'°'],
+   ['Distance',`${+f.avg.toFixed(1)} in`+(f.dT!=null?` of ${f.dT}`:'')],['Motor power',`L ${+f.cmdL.toFixed(0)}%, R ${+f.cmdR.toFixed(0)}%`],
+   ['Claw',(f.p&1)?'closed':'open'],['Toggle piston',(f.p&2)?'extended':'retracted']]
+   .forEach(([k,v])=>{ dl.appendChild(el('dt',null,k)); dl.appendChild(el('dd',null,v)); });
+  if(fsCur!==f.step){
+    fsCur=f.step;
+    [...ol.children].forEach((li,i)=>{ li.className=i===f.step?'cur':i<f.step?'past':''; });
+    const c=ol.children[f.step]; if(c) ol.scrollTop=c.offsetTop-ol.offsetTop-ol.clientHeight/2+c.clientHeight/2;
+  }
+}
+const stage=$('#stage');
+function setFs(on){
+  stage.classList.toggle('fs',on);
+  fsListKey=''; fsCur=null;
+  $('#fsBtn').textContent=on?'Exit fullscreen':'Fullscreen';
+  requestAnimationFrame(drawAll);
+}
+$('#fsBtn').onclick=async()=>{
+  const on=!stage.classList.contains('fs');
+  if(on){
+    setFs(true);
+    try{ if(stage.requestFullscreen) await stage.requestFullscreen(); }catch(e){}   // falls back to a fixed overlay
+  } else {
+    if(document.fullscreenElement){ try{ await document.exitFullscreen(); }catch(e){} }
+    setFs(false);
+  }
+};
+let realFs=false;   // only leave the overlay when a real fullscreen session ends (Esc / F11)
+document.addEventListener('fullscreenchange',()=>{
+  if(document.fullscreenElement){ realFs=true; return; }
+  if(realFs){ realFs=false; if(stage.classList.contains('fs')) setFs(false); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && stage.classList.contains('fs') && !document.fullscreenElement) setFs(false); });
+// answer key (PIN-gated; the PIN only hides the answer, it is not security)
+const KEY_PIN='3456';
+let keyUnlocked=false;
+function showKey(){
+  keyUnlocked=false;   // ask for the PIN every time
+  const L=curLevel(); if(!L) return;
+  $('#keyTitle').textContent=`Answer key: ${L.name}`;
+  $('#keyLock').hidden=keyUnlocked; $('#keyBody').hidden=!keyUnlocked;
+  $('#keyOut').value=L.key; $('#pinIn').value=''; $('#pinErr').textContent='';
+  $('#keyDlg').showModal();
+  if(!keyUnlocked) $('#pinIn').focus();
+}
+function tryPin(){
+  if($('#pinIn').value===KEY_PIN){ keyUnlocked=true; $('#keyLock').hidden=true; $('#keyBody').hidden=false; }
+  else { $('#pinErr').textContent='Wrong PIN.'; $('#pinIn').select(); }
+}
+$('#keyBtn').onclick=showKey;
+$('#pinGo').onclick=tryPin;
+$('#pinIn').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); tryPin(); } });
+$('#keyClose').onclick=()=>$('#keyDlg').close();
+$('#keyLoad').onclick=()=>{
+  const L=curLevel(); if(!L) return;
+  $('#keyDlg').close();
+  if(state.mode!=='code'){ state.codeStale=false; state.code=L.key; codeEl.value=L.key; setMode('code'); }
+  state.code=L.key; codeEl.value=L.key; save(); simT=0; resim();
+};
+
+// ---------- header actions ----------
+$('#loadPreset').onclick=()=>{
+  const k=$('#preset').value;
+  state.steps=clone(PRESETS[k]);
+  for(const p of DEFAULT_PIDS) if(!state.pids.some(q=>q.name===p.name)) state.pids.push(clone(p));
+  if(state.mode==='code'){ state.code=genCode(state.steps); codeEl.value=state.code; parseNow(); }
+  renderPids(); renderSteps(); simT=0; playing=false; updPlayBtn(); changed();
+};
+$('#exportBtn').onclick=()=>{
+  if(state.mode==='code'){ parseNow(); if(parsed.errors.length){ alert('Fix the code errors first.'); return; } }
+  const prog=activeProgram();
+  const used=new Set(); prog.steps.forEach(s=>{for(const k of ['KVals','Dvals']) if(s.a[k]) used.add(s.a[k]);});
+  const lines=['void myAuton() {'];
+  prog.pids.filter(p=>used.has(p.name)).forEach(p=>lines.push(`    PIDDataSet ${p.name}={${p.kp},${p.ki},${p.kd}};`));
+  prog.steps.forEach(s=>lines.push(`    ${callStr(s)};`));
+  lines.push('}');
+  $('#codeOut').value=lines.join('\n'); $('#codeDlg').showModal();
+};
+$('#copyCode').onclick=()=>{ const t=$('#codeOut'); t.select(); try{navigator.clipboard.writeText(t.value);}catch(e){document.execCommand('copy');} };
+$('#closeCode').onclick=()=>$('#codeDlg').close();
+$('#themeBtn').onclick=()=>{
+  const r=document.documentElement, dark=getComputedStyle(r).colorScheme==='dark';
+  r.dataset.theme=dark?'light':'dark'; drawAll();
+};
+window.addEventListener('resize',()=>drawAll());
+if(window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>drawAll());
+
+// ---------- boot ----------
+updLevelUI(); renderStart(); renderPids(); renderCfg(); renderSteps(); codeEl.value=state.code; if(state.mode==='code') parseNow(); updModeUI(); resim(); updPlayBtn();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
