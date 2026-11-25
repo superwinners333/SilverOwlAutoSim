@@ -91,6 +91,9 @@ td input[type=number],td input[type=text]{width:100%}
 #fsSteps li.past{color:var(--muted)}
 @media (max-width:760px){#stage.fs{grid-template-columns:minmax(0,1fr);grid-template-areas:"obj" "field" "ctrl" "side"}}
 [hidden]{display:none!important}
+.chkinline.off{opacity:.5;cursor:not-allowed}
+.chkinline{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2);cursor:pointer}
+.pending{flex-basis:100%;font-size:12px;color:var(--warn)}
 .startctl{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--text-2)}
 .startctl label{display:flex;align-items:center;gap:4px}
 .startctl input{width:64px}
@@ -215,7 +218,10 @@ dialog textarea{min-height:200px;width:100%;height:55vh;font:12px/1.4 ui-monospa
               <option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option>
             </select>
             <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Timeline">
+            <label class="chkinline" id="showPathLab"><input type="checkbox" id="showPath"> <span id="showPathTxt">Show predicted path</span></label>
+            <label class="chkinline" title="Friction varies a little between and during runs, and fast sharp curves can slide. Predictions are hidden."><input type="checkbox" id="realMode"> Realistic mode</label>
             <button id="fsBtn" title="Fullscreen field (Esc to exit)">Fullscreen</button>
+            <span class="pending" id="pendingNote" hidden>Routine changed. Click Run to see the new run.</span>
           </div>
           <aside id="fsSide" class="fs-only" aria-label="Current step">
             <div class="now"><b id="fsStepNo">Step</b><div class="call" id="fsCall"></div></div>
@@ -248,7 +254,7 @@ dialog textarea{min-height:200px;width:100%;height:55vh;font:12px/1.4 ui-monospa
 <dialog id="keyDlg">
   <h2 style="margin-top:0;font-size:15px" id="keyTitle">Answer key</h2>
   <div id="keyLock">
-    <p class="hint">Enter the PIN to see the example solution.</p>
+    <p class="hint" id="keyHint">Enter the PIN to see the example solution.</p>
     <div class="pin-row"><input type="password" id="pinIn" inputmode="numeric" maxlength="8" aria-label="PIN"><button class="primary" id="pinGo">Unlock</button></div>
     <div class="pin-err" id="pinErr"></div>
   </div>
@@ -341,20 +347,47 @@ const LEVELS = [
    start:[120,20,0], toggles:[[144,64],[88,144]], objs:[[84,64],[48,100]], goals:[[24,64,8],[96,124,8]], key:"// Level 4 example solution\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\nPIDDataSet driveD={3.0, 0, 0.05};\nMovePID(headingPID, driveD, 70, 44, 0.3, 0, true, 2);\nTurnMaxTimePID(TestPara, -90, 0.8, true);\nToggle.set(true);\nMoveTimePID(TestPara, -40, 0.8, 0.2, -90, true);\nToggle.set(false);\nMovePID(headingPID, driveD, 70, 44, 0.3, -90, true, 2);\nClaw.set(true);\nMovePID(headingPID, driveD, 70, 60, 0.3, -90, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, 23, 0.9, true);\nMovePID(headingPID, driveD, 70, 30.7, 0.3, 23, true, 2);\nClaw.set(true);\nTurnMaxTimePID(TestPara, 61, 0.7, true);\nMovePID(headingPID, driveD, 70, 51, 0.3, 61, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, 180, 0.6, true);        // back faces the top wall\nToggle.set(true);\nMoveTimePID(TestPara, -50, 0.7, 0.2, 180, true);  // toggle 2\nToggle.set(false);\n"},
   {name:'Level 5: Precision Run', time:15,
    desc:'The robot starts facing east, so a gyro heading of 0 points east. Two toggles, three objects and two small goals in 15 seconds.',
-   start:[18,72,90], toggles:[[0,72],[68,144]], objs:[[56,72],[96,36],[96,108]], goals:[[126,72,7],[60,124,7]], key:"// Level 5 example solution\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\n// hold: stiffer heading PID for straighter long drives.\nPIDDataSet driveD={3.0, 0, 0.05};\nPIDDataSet hold={2.5, 0.05, 0.1};\nToggle.set(true);\nMoveTimePID(TestPara, -40, 0.5, 0.2, 0, true);\nToggle.set(false);\nMovePID(hold, driveD, 70, 38, 0.3, 0, true, 2);\nClaw.set(true);\nMovePID(hold, driveD, 80, 70, 0.3, 0, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, 121, 0.9, true);\nMovePID(hold, driveD, 70, 33.4, 0.3, 121, true, 2);\nClaw.set(true);\nTurnMaxTimePID(TestPara, -46, 0.8, true);\nMovePID(hold, driveD, 70, 28.8, 0.3, -46, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, -120, 0.8, true);\nMovePID(hold, driveD, 80, 39.8, 0.3, -120, true, 2);\nClaw.set(true);\nTurnMaxTimePID(TestPara, -150, 0.6, true);\nMovePID(hold, driveD, 80, 37.2, 0.3, -150, true, 2);\nClaw.set(false);\nTurnMaxTimePID(TestPara, 90, 0.6, true);         // back faces the top wall\nToggle.set(true);\nMoveTimePID(TestPara, -60, 0.5, 0.2, 90, true);   // toggle 2\nToggle.set(false);\n"},
+   start:[18,72,90], toggles:[[0,72],[68,144]], objs:[[56,72],[96,36],[96,108]], goals:[[126,72,7],[60,124,7]], key:"// Level 5 example solution\n// driveD: heading PID for the curved MoveEncoderPID drives.\nPIDDataSet driveD={3.0, 0, 0.05};\nToggle.set(true);\nMoveTimePID(TestPara, -100, 0.2, 0.01, 0, false);\nToggle.set(false);\nMoveEncoderPID(TestPara, 100, 35, 0.01, 0, false);\nClaw.set(true);\nToggle.set(true);\nMoveEncoderPID(driveD, -100, 55, 0.01, 114, false);\nToggle.set(false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 22, 0.01, 21, false);\nClaw.set(true);\nMoveEncoderPID(driveD, 100, 48, 0.01, 80, false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 41, 0.01, 144, false);\nClaw.set(true);\nMoveEncoderPID(driveD, -100, 38, 0.01, 144, true);\nClaw.set(false);\n",
+   // loaded instead of key when realistic mode is on: turn first, then drive straight, which holds up to friction changes and sliding
+   keyReal:"// Level 5 example solution (realistic mode)\n// Turns first, then drives straight at 80, so friction changes and sliding do not throw it off.\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\nPIDDataSet driveD={3.0, 0, 0.05};\nToggle.set(true);\nMovePID(headingPID, driveD, -80, 12.5, 0.3, 0, true, 0.9);\nToggle.set(false);                                // toggle 1\nMovePID(headingPID, driveD, 80, 39.5, 0.3, 0, true, 1.5);\nClaw.set(true);                                   // grab object\nMovePID(headingPID, driveD, 80, 67.9, 0.3, 0, true, 2.1);\nClaw.set(false);                                  // drop in right goal\nTurnMaxTimePID(TestPara, 118, 0.7, true);\nMovePID(headingPID, driveD, 80, 31.9, 0.3, 118, true, 1.3);\nClaw.set(true);                                   // grab bottom object\nTurnMaxTimePID(TestPara, -48, 0.9, true);\nMovePID(headingPID, driveD, 80, 28.1, 0.3, -48, true, 1.2);\nClaw.set(false);                                  // drop in right goal\nTurnMaxTimePID(TestPara, -119, 0.6, true);\nMovePID(headingPID, driveD, 80, 40.1, 0.3, -119, true, 1.5);\nClaw.set(true);                                   // grab top object\nTurnMaxTimePID(TestPara, -150, 0.5, true);\nMovePID(headingPID, driveD, 80, 35.7, 0.3, -150, true, 1.4);\nClaw.set(false);                                  // drop in top goal\nTurnMaxTimePID(TestPara, 89, 0.8, true);         // back faces the top wall\nToggle.set(true);\nMovePID(headingPID, driveD, -80, 19.7, 0.3, 89, true, 1);\nToggle.set(false);                                // toggle 2\n"},
+  {name:'Bonus: Full Field', time:60,
+   desc:'Four toggles, one on each wall. Ten objects and four corner goals. The claw holds one object at a time. 60 seconds.',
+   start:[72,18,0], toggles:[[72,0],[0,72],[144,72],[72,144]],
+   objs:[[72,40],[46,46],[98,46],[30,72],[114,72],[72,72],[46,98],[98,98],[60,124],[84,124]],
+   goals:[[22,22,8],[122,22,8],[22,122,8],[122,122,8]],
+   key:"// Bonus example solution\n// driveD: heading PID for the curved MoveEncoderPID drives.\nPIDDataSet driveD={3.0, 0, 0.05};\nToggle.set(true);\nMoveTimePID(driveD, -100, 0.2, 0.01, 0, false);\nToggle.set(false);\nMoveEncoderPID(driveD, 100, 18, 0.01, 0, false);\nClaw.set(true);\nMoveEncoderPID(driveD, 100, 43, 0.01, -120, false);\nClaw.set(false);\nMoveEncoderPID(driveD, -100, 34, 0.01, -170, false);\nClaw.set(true);\nMoveEncoderPID(driveD, 100, 30, 0.01, -110, false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 37, 0.01, 13, false);\nClaw.set(true);\nToggle.set(true);\nMoveEncoderPID(driveD, -100, 17, 0.01, 120, false);\nToggle.set(false);\nMoveEncoderPID(driveD, 100, 30, 0.01, 5, false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 30, 0.01, 95, false);\nClaw.set(true);\nToggle.set(true);\nMoveEncoderPID(driveD, -100, 17, 0.01, -130, false);\nToggle.set(false);\nMoveEncoderPID(driveD, 100, 33, 0.01, -80, false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 25, 0.01, 135, false);\nClaw.set(true);\nMoveEncoderPID(driveD, 100, 73, 0.01, 58, false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 24, 0.01, -95, false);\nClaw.set(true);\nMoveEncoderPID(driveD, -100, 28, 0.01, -95, false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 29, 0.01, -160, false);\nClaw.set(true);\nMoveEncoderPID(driveD, -100, 35, 0.01, -160, false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 70, 0.01, -110, false);\nClaw.set(true);\nToggle.set(true);\nMoveEncoderPID(driveD, -100, 56, 0.01, -65, false);\nToggle.set(false);\nMoveEncoderPID(driveD, 100, 34, 0.01, 5, false);\nClaw.set(false);\nMoveEncoderPID(driveD, 100, 42, 0.01, -172, false);\nClaw.set(true);\nMoveEncoderPID(driveD, 100, 48, 0.01, 145, false);\nClaw.set(false);\nMoveEncoderPID(driveD, -100, 34, 0.01, 105, false);\nClaw.set(true);\nMoveEncoderPID(driveD, 100, 29, 0.01, 160, false);\nClaw.set(false);\n",
+   // loaded instead of key when realistic mode is on
+   keyReal:"// Bonus example solution (realistic mode)\n// Turns first, then drives straight at 80, so friction changes and sliding do not throw it off.\n// Goals: 1 bottom-left, 2 bottom-right, 3 top-left, 4 top-right. Toggles: 1 bottom, 2 left, 3 right, 4 top.\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\nPIDDataSet driveD={3.0, 0, 0.05};\nToggle.set(true);\nMovePID(headingPID, driveD, -80, 12.5, 0.3, 0, true, 0.9);\nToggle.set(false);  // toggle 1\nMovePID(headingPID, driveD, 80, 23.5, 0.3, 0, true, 1.1);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -102, 0.7, true);\nMovePID(headingPID, driveD, 80, 40.5, 0.3, -102, true, 1.5);\nClaw.set(false);  // drop in goal 1\nTurnMaxTimePID(TestPara, 146, 0.7, true);\nToggle.set(true);\nMovePID(headingPID, driveD, -80, 52.3, 0.3, 146, true, 1.8);\nToggle.set(false);  // toggle 2\nTurnMaxTimePID(TestPara, 119, 0.4, true);\nMovePID(headingPID, driveD, 80, 35, 0.3, 119, true, 1.4);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -149, 0.7, true);\nMovePID(headingPID, driveD, 80, 22, 0.3, -149, true, 1.1);\nClaw.set(false);  // drop in goal 1\nTurnMaxTimePID(TestPara, -158, 0.4, true);\nToggle.set(true);\nMovePID(headingPID, driveD, -80, 117.5, 0.3, -158, true, 3.2);\nToggle.set(false);  // toggle 4\nTurnMaxTimePID(TestPara, -142, 0.4, true);\nMovePID(headingPID, driveD, 80, 5.9, 0.3, -142, true, 0.7);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -101, 0.5, true);\nMovePID(headingPID, driveD, 80, 33.1, 0.3, -101, true, 1.3);\nClaw.set(false);  // drop in goal 3\nTurnMaxTimePID(TestPara, 150, 0.7, true);\nMovePID(headingPID, driveD, 80, 20.3, 0.3, 150, true, 1.1);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -49, 0.9, true);\nMovePID(headingPID, driveD, 80, 16.3, 0.3, -49, true, 1);\nClaw.set(false);  // drop in goal 3\nTurnMaxTimePID(TestPara, -69, 0.4, true);\nToggle.set(true);\nMovePID(headingPID, driveD, -80, 117.9, 0.3, -69, true, 3.2);\nToggle.set(false);  // toggle 3\nTurnMaxTimePID(TestPara, -99, 0.5, true);\nMovePID(headingPID, driveD, 80, 12.7, 0.3, -99, true, 0.9);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, 179, 0.6, true);\nMovePID(headingPID, driveD, 80, 40.6, 0.3, 179, true, 1.5);\nClaw.set(false);  // drop in goal 2\nTurnMaxTimePID(TestPara, -59, 0.8, true);\nMovePID(headingPID, driveD, 80, 18.7, 0.3, -59, true, 1);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, 139, 0.9, true);\nMovePID(headingPID, driveD, 80, 16.1, 0.3, 139, true, 1);\nClaw.set(false);  // drop in goal 2\nTurnMaxTimePID(TestPara, -15, 0.9, true);\nMovePID(headingPID, driveD, 80, 62.6, 0.3, -15, true, 2);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, 34, 0.5, true);\nMovePID(headingPID, driveD, 80, 28.9, 0.3, 34, true, 1.2);\nClaw.set(false);  // drop in goal 4\nTurnMaxTimePID(TestPara, -73, 0.7, true);\nMovePID(headingPID, driveD, 80, 25.2, 0.3, -73, true, 1.2);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, 90, 0.9, true);\nMovePID(headingPID, driveD, 80, 20, 0.3, 90, true, 1);\nClaw.set(false);  // drop in goal 4\nTurnMaxTimePID(TestPara, -141, 0.8, true);\nMovePID(headingPID, driveD, 80, 55.3, 0.3, -141, true, 1.8);\nClaw.set(true);   // grab object\nMovePID(headingPID, driveD, 80, 69, 0.3, -135, true, 2.1);\nClaw.set(false);  // drop in goal 1\nTurnMaxTimePID(TestPara, 1, 0.8, true);\nMovePID(headingPID, driveD, 80, 33.7, 0.3, 1, true, 1.3);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -169, 0.9, true);\nMovePID(headingPID, driveD, 80, 32, 0.3, -169, true, 1.3);\nClaw.set(false);  // drop in goal 1\n"},
+  // Score level: no pass/fail. The robot stops at 30 s. 1 point per object in a goal and per toggle left on.
+  // 64 objects fill the middle of the field (40..104 in). Every object is at least 28.8 in from the nearest
+  // goal edge, so scoring one takes at least ~58 in of claw travel (carry it there and come back). Even at an
+  // impossible 100 in/s that caps a run at about 53 objects, so the 64 objects never run out.
+  {name:'Score Attack', time:30, score:true,
+   desc:'Score as many points as you can in 30 seconds. Each object in a goal and each toggle left on at the buzzer is 1 point. There are more objects than anyone can score, and the robot stops at 30 s.',
+   start:[72,14,0], toggles:[[48,0],[96,0],[0,48],[0,96],[144,48],[144,96],[48,144],[96,144]],
+   objs:Array.from({length:64},(_,i)=>[+(40+(i%8)*64/7).toFixed(1),+(40+Math.floor(i/8)*64/7).toFixed(1)]),
+   goals:[[14,14,8],[130,14,8],[14,130,8],[130,130,8]], key:"// Score Attack example solution: 9 points (5 objects + 4 toggles) in normal mode\n// Turns first, then drives straight. The robot stops at the 30 s buzzer.\n// driveD: stiffer distance PID than distancePID, so MovePID slows down later and finishes before its timeout.\nPIDDataSet driveD={3.0, 0, 0.05};\nTurnMaxTimePID(TestPara, -77, 0.6, true);\nMovePID(headingPID, driveD, 100, 24.6, 0.3, -77, true, 1.1);\nTurnMaxTimePID(TestPara, -4, 0.6, true);\nToggle.set(true);\nMovePID(headingPID, driveD, -100, 14.4, 0.3, -4, true, 0.9);\nToggle.set(false);\nMovePID(headingPID, driveD, 100, 33.3, 0.3, -10, true, 1.3);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -134, 0.8, true);\nMovePID(headingPID, driveD, 100, 29.2, 0.3, -134, true, 1.2);\nClaw.set(false);  // drop in goal\nTurnMaxTimePID(TestPara, -2, 0.8, true);\nMovePID(headingPID, driveD, 100, 27.5, 0.3, -2, true, 1.2);\nTurnMaxTimePID(TestPara, 86, 0.6, true);\nToggle.set(true);\nMovePID(headingPID, driveD, -100, 13.9, 0.3, 86, true, 0.9);\nToggle.set(false);\nMovePID(headingPID, driveD, 100, 32.6, 0.3, 89, true, 1.3);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -142, 0.8, true);\nMovePID(headingPID, driveD, 100, 34.2, 0.3, -142, true, 1.4);\nClaw.set(false);  // drop in goal\nTurnMaxTimePID(TestPara, 48, 0.9, true);\nMovePID(headingPID, driveD, 100, 18.4, 0.3, 48, true, 1);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -136, 0.9, true);\nMovePID(headingPID, driveD, 100, 18.8, 0.3, -136, true, 1);\nClaw.set(false);  // drop in goal\nTurnMaxTimePID(TestPara, 56, 0.9, true);\nMovePID(headingPID, driveD, 100, 26.1, 0.3, 56, true, 1.2);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -127, 0.9, true);\nMovePID(headingPID, driveD, 100, 25.6, 0.3, -127, true, 1.2);\nClaw.set(false);  // drop in goal\nTurnMaxTimePID(TestPara, -1, 0.8, true);\nMovePID(headingPID, driveD, 100, 76.2, 0.3, -1, true, 2.3);\nTurnMaxTimePID(TestPara, 89, 0.6, true);\nToggle.set(true);\nMovePID(headingPID, driveD, -100, 14.4, 0.3, 89, true, 0.9);\nToggle.set(false);\nMovePID(headingPID, driveD, 100, 23.5, 0.3, 92, true, 1.1);\nClaw.set(true);   // grab object\nTurnMaxTimePID(TestPara, -29, 0.8, true);\nMovePID(headingPID, driveD, 100, 28.8, 0.3, -29, true, 1.2);\nClaw.set(false);  // drop in goal\nTurnMaxTimePID(TestPara, 85, 0.7, true);\nMovePID(headingPID, driveD, 100, 29.9, 0.3, 85, true, 1.3);\nTurnMaxTimePID(TestPara, 176, 0.7, true);\nToggle.set(true);\nMovePID(headingPID, driveD, -100, 13.7, 0.3, 176, true, 0.9);   // buzzer at 30 s\n"},
 ];
 const curLevel=()=>LEVELS[(state&&state.level||0)-1]||null;
 function effCfg(){
-  const L=curLevel(); if(!L) return state.cfg;
-  return {...state.cfg,startX:L.start[0],startY:L.start[1],startH:L.start[2]};
+  const L=curLevel();
+  const c={...state.cfg,realistic:!!state.realistic,omni:!!state.omni,seed:(Math.random()*4294967296)>>>0};
+  if(!L) return c;
+  // levels longer than the simulation time limit raise it, so the run is not cut off before the level's own limit
+  // score levels: the robot stops exactly at the level's time limit (the buzzer)
+  return {...c,startX:L.start[0],startY:L.start[1],startH:L.start[2],maxTime:L.score?L.time:Math.max(Number(c.maxTime)||0,L.time+5)};
 }
 
 const STORE_KEY = 'silver-owl-sim-v3';
-let state = {steps:clone(PRESETS.default), pids:clone(DEFAULT_PIDS), cfg:clone(DEFAULT_CFG), mode:'blocks', code:'', codeStale:true, level:0};
+let state = {steps:clone(PRESETS.default), pids:clone(DEFAULT_PIDS), cfg:clone(DEFAULT_CFG), mode:'blocks', code:'', codeStale:true, level:0, showPath:false, realistic:false, omni:false};
 try{
   const s = JSON.parse(localStorage.getItem(STORE_KEY)||'null');
   if(s && Array.isArray(s.steps) && Array.isArray(s.pids)) state = {...state, ...s, cfg:{...DEFAULT_CFG,...s.cfg}};
 }catch(e){}
+// The predicted path starts off and locked on every page load. The answer-key PIN unlocks it for this page session.
+let pathUnlocked=false;
+state.showPath=false;
+const showPredOn=()=>pathUnlocked && state.showPath===true && !state.realistic;
 const save = ()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(state));}catch(e){}};
 
 // ---------- simulation (faithful port of movement.cpp) ----------
@@ -423,19 +456,63 @@ function simulate(steps, pids, cfg, level){
       p:(S.pist.Claw?1:0)|(S.pist.Toggle?2:0),
       objs:W.objs.map(o=>[o.x,o.y,o.goal>=0?1:o.held?2:0]),togs:W.togs.map(t=>t.on)});
   }
-  const sideStep = (v,m,V) => {
-    if(m==='volt'){ const vc=Math.max(-12,Math.min(12,V)); return v+(vc/12*vmax-v)*Math.min(1,PH/cfg.tau); }
-    return v - v*Math.min(1,PH/(m==='brake'?cfg.tauBrake:cfg.tauCoast));
+  // ----- realistic mode: seeded randomness, varying friction, sliding -----
+  const REAL=!!cfg.realistic, OMNI=!!cfg.omni;
+  let seed=(cfg.seed>>>0)||1;
+  const rnd=()=>{ seed=(seed+0x6D2B79F5)|0; let t=Math.imul(seed^(seed>>>15),1|seed); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; };
+  const gauss=()=>{ let u=0; while(!u) u=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rnd()); };
+  // friction: a per-run offset for each side plus a slow drift during the run (about ±1-2%)
+  const fBaseL=REAL?1-0.01+0.012*gauss():1, fBaseR=REAL?1-0.01+0.012*gauss():1;
+  const OU_TAU=0.8, OU_SD=0.01; let ouL=0, ouR=0;
+  const tauBrakeR=cfg.tauBrake*(REAL?Math.max(0.5,1+0.08*gauss()):1);
+  const tauCoastR=cfg.tauCoast*(REAL?Math.max(0.5,1+0.10*gauss()):1);
+  // sliding: when a curve needs more sideways grip than the wheels have, the robot slides outward
+  const SLIDE=REAL||OMNI;
+  const A_LIM=OMNI?100:200;          // sideways grip limit (in/s^2)
+  const GRIP_TAU=OMNI?0.4:0.12;      // how fast sideways sliding dies out (s)
+  const SLIP_K=OMNI?1.0:0.6;
+  let vlat=0;                        // sideways speed, + = robot's right (in/s)
+  // omni drift: omni rollers let the robot creep sideways a little while it drives.
+  // Sideways drift speed = DRIFT x forward speed x bias. Normal mode: fixed, slight drift to the robot's right.
+  // Realistic mode: random direction and size per run, plus a slow wander during the run.
+  const DRIFT=0.015, OU_TAU_D=1.5, OU_SD_D=0.5;
+  const driftBias=OMNI&&REAL?(rnd()<0.5?-1:1)*(0.6+0.8*rnd()):1;
+  let ouD=0;
+  const sideStep = (v,m,V,f) => {
+    if(m==='volt'){ const vc=Math.max(-12,Math.min(12,V)); return v+(vc/12*vmax*f-v)*Math.min(1,PH/cfg.tau); }
+    return v - v*Math.min(1,PH/(m==='brake'?tauBrakeR:tauCoastR));
   };
   function advance(sec){
     const n = Math.round(sec/PH);
     for(let k=0;k<n;k++){
-      S.vl = sideStep(S.vl,S.mL,S.VL);
-      S.vr = sideStep(S.vr,S.mR,S.VR);
+      if(REAL){
+        const k=Math.sqrt(2*PH/OU_TAU)*OU_SD;
+        ouL+=-ouL*PH/OU_TAU+k*gauss(); ouR+=-ouR*PH/OU_TAU+k*gauss();
+      }
+      S.vl = sideStep(S.vl,S.mL,S.VL,fBaseL*(1+ouL));
+      S.vr = sideStep(S.vr,S.mR,S.VR,fBaseR*(1+ouR));
       const v=(S.vl+S.vr)/2, w=(S.vl-S.vr)/cfg.track*180/Math.PI;   // deg/s, clockwise positive
       S.rot += w*PH;
       const th=(cfg.startH+S.rot)*Math.PI/180;
-      S.x += v*Math.sin(th)*PH; S.y += v*Math.cos(th)*PH;
+      if(SLIDE){
+        const need=v*(S.vl-S.vr)/cfg.track;              // sideways accel the curve needs, toward the robot's right
+        const ex=Math.abs(need)-A_LIM;
+        if(ex>0){
+          const k=SLIP_K*(REAL?Math.max(0,1+0.3*gauss()):1);
+          vlat += -Math.sign(need)*ex*k*PH;               // slides to the outside of the curve
+          if(REAL) vlat += 4*Math.sqrt(PH)*gauss()*Math.min(1,ex/A_LIM);   // small random left/right drift
+        }
+        const braking=S.mL==='brake'||S.mR==='brake';
+        vlat -= vlat*Math.min(1,PH/(braking?GRIP_TAU*0.4:GRIP_TAU));
+      }
+      let vd=0;                                          // omni drift speed, + = robot's right (in/s)
+      if(OMNI){
+        if(REAL) ouD += -ouD*PH/OU_TAU_D + Math.sqrt(2*PH/OU_TAU_D)*OU_SD_D*gauss();
+        vd = DRIFT*v*(driftBias+ouD);
+      }
+      // encoders only see wheel travel, so sideways sliding and drift are invisible to the code
+      const vs=vlat+vd;
+      S.x += (v*Math.sin(th)+vs*Math.cos(th))*PH; S.y += (v*Math.cos(th)-vs*Math.sin(th))*PH;
       S.x=Math.max(RB,Math.min(144-RB,S.x)); S.y=Math.max(RB,Math.min(144-RB,S.y));   // field walls (wheels slip, encoders keep counting)
       S.dl += S.vl*PH; S.dr += S.vr*PH;
       S.tick++; S.t = S.tick*PH;
@@ -610,7 +687,8 @@ function simulate(steps, pids, cfg, level){
     catch(e){
       if(!(e instanceof Abort)) throw e;
       r.reason=`simulation time limit (${cfg.maxTime} s)`;
-      if(st.fn==='MoveEncoderPID') warn(`Step ${i+1}: MoveEncoderPID never reached its distance. It has no timeout, so the real robot would keep driving.`);
+      if(level && level.score) r.reason=`time up (${cfg.maxTime} s)`;   // the buzzer is expected in score levels, no warning
+      else if(st.fn==='MoveEncoderPID') warn(`Step ${i+1}: MoveEncoderPID never reached its distance. It has no timeout, so the real robot would keep driving.`);
       else warn(`The simulation time limit (${cfg.maxTime} s) ran out during step ${i+1}.`);
       aborted=true;
     }
@@ -740,8 +818,14 @@ function renderCfg(){
     inp.oninput=()=>{const v=parseFloat(inp.value); if(!Number.isNaN(v)){state.cfg[k]=v;changed();}};
     lab.appendChild(inp); c.appendChild(lab);
   });
+  const wl=el('label',null,'Wheels'), ws=el('select'); ws.id='cfg_wheels';
+  wl.title='Omni wheels grip less sideways: the robot drifts a little sideways while driving, and sharp curves slide more.';
+  [['traction','Traction'],['omni','Omni']].forEach(([v,t])=>{ const o=el('option',null,t); o.value=v; ws.appendChild(o); });
+  ws.value=state.omni?'omni':'traction';
+  ws.onchange=()=>{ state.omni=ws.value==='omni'; modeChanged(); };
+  wl.appendChild(ws); c.appendChild(wl);
   const reset=el('button',null,'Reset to defaults'); reset.style.gridColumn='1/-1';
-  reset.onclick=()=>{ CFG_FIELDS.forEach(([k,,d])=>state.cfg[k]=d); renderCfg(); changed(); };
+  reset.onclick=()=>{ CFG_FIELDS.forEach(([k,,d])=>state.cfg[k]=d); state.omni=false; renderCfg(); changed(); };
   c.appendChild(reset);
 }
 // free-play start position (levels set their own start)
@@ -763,28 +847,46 @@ function frameAt(t){
 }
 const curFrame=()=>frameAt(simT);
 
-function resim(){
+// While a run is playing or part-way through, edits are held back so the robot does not jump.
+// They apply on the next Run (or when playback is back at the start).
+let pendingSim=null;
+let revealedT=0;   // realistic mode: furthest time already played; nothing past it is shown
+const revLimit=()=>state.realistic?revealedT:Infinity;
+function buildSim(){
   if(state.mode==='code') parseNow();
   const prog=activeProgram();
-  if(prog.errors.length) sim={frames:[],results:[],warns:[],errors:prog.errors,steps:[]};
-  else {
-    try{ sim={...simulate(prog.steps,prog.pids,effCfg(),curLevel()),errors:[],steps:prog.steps,level:curLevel()}; }
-    catch(e){ sim={frames:[],results:[],warns:[],errors:[{line:0,msg:'Simulation error: '+e.message}],steps:[]}; }
-  }
-  simT=Math.min(simT,tEnd());
+  if(prog.errors.length) return {frames:[],results:[],warns:[],errors:prog.errors,steps:[]};
+  try{ return {...simulate(prog.steps,prog.pids,effCfg(),curLevel()),errors:[],steps:clone(prog.steps),level:curLevel()}; }
+  catch(e){ return {frames:[],results:[],warns:[],errors:[{line:0,msg:'Simulation error: '+e.message}],steps:[]}; }
+}
+function applySim(next){
+  sim=next; pendingSim=null; $('#pendingNote').hidden=true;
+  simT=Math.min(simT,tEnd()); revealedT=simT; lastResCount=-1;
   renderResults(); drawAll();
+}
+function resim(force){
+  const next=buildSim();
+  // Hold every edit back while a run is shown part-way or at its end, including edits that leave
+  // the code with errors (e.g. a half-typed line). Otherwise the error state resets the playhead
+  // and the next valid edit jumps the robot. The code editor still lists the errors.
+  const midRun=(playing||simT>0) && sim.frames.length>0;
+  if(force!==true && midRun){ pendingSim=next; $('#pendingNote').hidden=false; return; }
+  applySim(next);
 }
 function changed(){ if(state.mode==='blocks') state.codeStale=true; save(); clearTimeout(simTimer); simTimer=setTimeout(resim,120); }
 
+let lastResCount=-1;
 function renderResults(){
+  const rev=revLimit(), ended=rev>=tEnd()-1e-9;
   const w=$('#warns'); w.innerHTML='';
   if(sim.errors.length) w.appendChild(errorBox(sim.errors,'Simulation not run. Fix these errors:'));
-  if(sim.warns.length){
+  if(sim.warns.length && ended){
     const box=el('div','warns'); const ul=el('ul');
     sim.warns.forEach(m=>ul.appendChild(el('li',null,m))); box.appendChild(ul); w.appendChild(box);
   }
   const tb=$('#results'); tb.innerHTML='';
   sim.results.forEach(r=>{
+    if(r.t1>rev+1e-9 && !(ended && r===sim.results[sim.results.length-1])) return;
     const tr=el('tr','res'); tr.dataset.i=r.i;
     const st=sim.steps[r.i];
     [String(r.i+1),callStr(st),r.t0.toFixed(2),(r.t1-r.t0).toFixed(2),r.reason,r.hdg.toFixed(1)+'°',String(+r.avg.toFixed(2))]
@@ -794,7 +896,7 @@ function renderResults(){
   });
 }
 function seekStep(i){
-  const r=sim.results.find(x=>x.i===i); if(!r) return;
+  const r=sim.results.find(x=>x.i===i); if(!r || r.t0>revLimit()) return;
   simT=r.t0; playing=false; updPlayBtn(); drawAll();
 }
 
@@ -803,15 +905,35 @@ function loop(ts){
     const dt=lastTs?(ts-lastTs)/1000:0;
     simT+=dt*parseFloat($('#speed').value);
     if(simT>=tEnd()){ simT=tEnd(); playing=false; updPlayBtn(); }
+    revealedT=Math.max(revealedT,simT);
     drawAll();
   }
   lastTs=ts;
   requestAnimationFrame(loop);
 }
 function updPlayBtn(){ $('#playBtn').textContent=playing?'Pause':'Play'; }
-$('#runBtn').onclick=()=>{ clearTimeout(simTimer); resim(); simT=0; playing=true; updPlayBtn(); };
-$('#playBtn').onclick=()=>{ if(!playing && simT>=tEnd()) simT=0; playing=!playing; updPlayBtn(); };
-$('#scrub').oninput=e=>{ simT=tEnd()*e.target.value/1000; playing=false; updPlayBtn(); drawAll(); };
+$('#runBtn').onclick=()=>{ clearTimeout(simTimer); simT=0; resim(true); playing=true; updPlayBtn(); };
+$('#playBtn').onclick=()=>{
+  if(!playing && simT>=tEnd()){ simT=0; if(state.realistic) resim(true); else if(pendingSim) applySim(pendingSim); }
+  playing=!playing; updPlayBtn();
+};
+function updModeToggles(){
+  $('#realMode').checked=!!state.realistic;
+  $('#showPath').disabled=!!state.realistic;
+  $('#showPath').checked=showPredOn();
+  $('#showPathTxt').textContent=pathUnlocked?'Show predicted path':'Show predicted path (locked)';
+  $('#showPathLab').classList.toggle('off',!!state.realistic);
+  $('#showPathLab').title=state.realistic?'Predictions are hidden in realistic mode':pathUnlocked?'':'Enter the PIN to unlock the predicted path';
+  const ws=$('#cfg_wheels'); if(ws) ws.value=state.omni?'omni':'traction';
+}
+updModeToggles();
+$('#showPath').onchange=e=>{
+  if(!pathUnlocked){ e.target.checked=false; showPathPin(); return; }
+  state.showPath=e.target.checked; save(); drawAll();
+};
+const modeChanged=()=>{ updModeToggles(); simT=0; playing=false; updPlayBtn(); save(); clearTimeout(simTimer); resim(true); };
+$('#realMode').onchange=e=>{ state.realistic=e.target.checked; modeChanged(); };
+$('#scrub').oninput=e=>{ simT=Math.min(tEnd()*e.target.value/1000,revLimit()); playing=false; updPlayBtn(); if(simT===0 && pendingSim) applySim(pendingSim); else drawAll(); };
 
 // ---------- drawing ----------
 function fit(cv){
@@ -830,6 +952,7 @@ function highlightStep(i,force){
 }
 function drawAll(){
   cssCache=null;
+  if(state.realistic){ const n=sim.results.filter(r=>r.t1<=revealedT+1e-9).length+(revealedT>=tEnd()-1e-9?1:0); if(n!==lastResCount){ lastResCount=n; renderResults(); } }
   drawField(); drawCharts(); updReadout();
   const te=tEnd(); $('#scrub').value=te?Math.round(simT/te*1000):0;
 }
@@ -865,11 +988,14 @@ function drawField(){
       ctx.fillText(`${nm} ${on?'ON':'OFF'}`,lx,ly);
     });
   }
-  // planned path
+  // predicted path (optional)
+  const showPred=showPredOn();
   ctx.lineJoin='round'; ctx.lineCap='round';
-  ctx.strokeStyle=css('--muted'); ctx.globalAlpha=0.55; ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
-  ctx.beginPath(); F.forEach((f,i)=>{const [x,y]=P(f.x,f.y); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.stroke();
-  ctx.setLineDash([]); ctx.globalAlpha=1;
+  if(showPred){
+    ctx.strokeStyle=css('--muted'); ctx.globalAlpha=0.55; ctx.setLineDash([4,4]); ctx.lineWidth=1.5;
+    ctx.beginPath(); F.forEach((f,i)=>{const [x,y]=P(f.x,f.y); i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+  }
   // travelled path
   const ci=F.indexOf(cur);
   ctx.strokeStyle=css('--s1'); ctx.lineWidth=2.5;
@@ -878,6 +1004,7 @@ function drawField(){
   ctx.font='600 11px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
   sim.results.forEach(r=>{
     if(!['MoveEncoderPID','MovePID','TurnMaxTimePID','MoveTimePID','MoveTime'].includes(r.fn)) return;
+    if(!showPred && r.t0>cur.t+1e-9) return;   // hide markers for steps not reached yet
     const f=frameAt(r.t0); const [x,y]=P(f.x,f.y);
     ctx.fillStyle=css('--surface'); ctx.strokeStyle=css('--text-2'); ctx.lineWidth=1.5;
     ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.fill(); ctx.stroke();
@@ -972,7 +1099,7 @@ const chartEls=CHARTS.map((c,ci)=>{
   const o={cv,tip,hoverT:null,cfg:c,geom:null};
   cv.addEventListener('mousemove',e=>{ if(!o.geom) return; const r=cv.getBoundingClientRect(); o.hoverT=o.geom.inv(e.clientX-r.left); drawChart(o); });
   cv.addEventListener('mouseleave',()=>{ o.hoverT=null; tip.style.display='none'; drawChart(o); });
-  cv.addEventListener('click',e=>{ if(!o.geom) return; const r=cv.getBoundingClientRect(); simT=Math.max(0,Math.min(tEnd(),o.geom.inv(e.clientX-r.left))); playing=false; updPlayBtn(); drawAll(); });
+  cv.addEventListener('click',e=>{ if(!o.geom) return; const r=cv.getBoundingClientRect(); simT=Math.max(0,Math.min(tEnd(),revLimit(),o.geom.inv(e.clientX-r.left))); playing=false; updPlayBtn(); drawAll(); });
   return o;
 });
 function niceTicks(min,max,n){
@@ -986,9 +1113,10 @@ function drawChart(o){
   const {ctx,w,h}=fit(o.cv), F=sim.frames, c=o.cfg;
   ctx.clearRect(0,0,w,h);
   if(!F.length) return;
-  const pad={l:40,r:8,t:8,b:20}, pw=w-pad.l-pad.r, ph=h-pad.t-pad.b, te=tEnd()||1;
+  const rev=revLimit();
+  const pad={l:40,r:8,t:8,b:20}, pw=w-pad.l-pad.r, ph=h-pad.t-pad.b, te=state.realistic?Math.max(1,Math.min(tEnd(),revealedT)):(tEnd()||1);
   let lo=Infinity,hi=-Infinity;
-  F.forEach(f=>c.series.forEach(s=>{const v=f[s.k]; if(v!=null){ if(v<lo)lo=v; if(v>hi)hi=v; }}));
+  F.forEach(f=>{ if(f.t>rev) return; c.series.forEach(s=>{const v=f[s.k]; if(v!=null){ if(v<lo)lo=v; if(v>hi)hi=v; }}); });
   if(c.zero){lo=Math.min(lo,0);hi=Math.max(hi,0);}
   if(!Number.isFinite(lo)){lo=-1;hi=1;}
   if(hi-lo<1e-6){lo-=1;hi+=1;}
@@ -1002,7 +1130,7 @@ function drawChart(o){
   niceTicks(0,te,6).forEach(t=>ctx.fillText(t+'s',X(t),h-pad.b+5));
   // step boundaries
   ctx.globalAlpha=0.5; ctx.setLineDash([2,3]);
-  sim.results.forEach(r=>{ if(r.t1-r.t0<0.005) return; const x=Math.round(X(r.t0))+0.5; ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke(); });
+  sim.results.forEach(r=>{ if(r.t1-r.t0<0.005 || r.t0>rev) return; const x=Math.round(X(r.t0))+0.5; ctx.beginPath(); ctx.moveTo(x,pad.t); ctx.lineTo(x,pad.t+ph); ctx.stroke(); });
   ctx.setLineDash([]); ctx.globalAlpha=1;
   if(c.zero && lo<0 && hi>0){ ctx.strokeStyle=css('--muted'); const y=Math.round(Y(0))+0.5; ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(w-pad.r,y); ctx.stroke(); }
   // series
@@ -1010,7 +1138,7 @@ function drawChart(o){
   c.series.forEach(s=>{
     ctx.strokeStyle=css(s.c); ctx.lineWidth=s.dash?1.5:2; ctx.setLineDash(s.dash?[5,4]:[]);
     ctx.beginPath(); let pen=false;
-    F.forEach(f=>{ const v=f[s.k]; if(v==null){pen=false;return;} const x=X(f.t),y=Y(v); pen?ctx.lineTo(x,y):ctx.moveTo(x,y); pen=true; });
+    F.forEach(f=>{ if(f.t>rev) return; const v=f[s.k]; if(v==null){pen=false;return;} const x=X(f.t),y=Y(v); pen?ctx.lineTo(x,y):ctx.moveTo(x,y); pen=true; });
     ctx.stroke(); ctx.setLineDash([]);
   });
   // playhead
@@ -1018,7 +1146,7 @@ function drawChart(o){
   const px=Math.round(X(simT))+0.5; ctx.beginPath(); ctx.moveTo(px,pad.t); ctx.lineTo(px,pad.t+ph); ctx.stroke();
   // hover
   if(o.hoverT!=null){
-    const f=frameAt(o.hoverT), hx=Math.round(X(f.t))+0.5;
+    const f=frameAt(Math.min(o.hoverT,rev)), hx=Math.round(X(f.t))+0.5;
     ctx.strokeStyle=css('--text-2'); ctx.lineWidth=1; ctx.setLineDash([3,3]);
     ctx.beginPath(); ctx.moveTo(hx,pad.t); ctx.lineTo(hx,pad.t+ph); ctx.stroke(); ctx.setLineDash([]);
     c.series.forEach(s=>{ const v=f[s.k]; if(v==null||s.dash) return; ctx.fillStyle=css(s.c); ctx.strokeStyle=css('--surface'); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(hx,Y(v),4,0,Math.PI*2); ctx.fill(); ctx.stroke(); });
@@ -1266,14 +1394,27 @@ function updObjectives(f){
   if(!L){ if(lastObjKey!=='none'){ box.innerHTML=''; $('#objectivesFs').innerHTML=''; lastObjKey='none'; } return; }
   const scored=f.objs.filter(o=>o[2]===1).length, W=sim.world;
   let res;
-  if(W.doneT!=null && W.doneT<=L.time) res=`Level complete in ${W.doneT.toFixed(2)} s`;
+  const rev=revLimit();
+  if(rev < (W.doneT!=null?W.doneT:tEnd())-1e-9) res='Run in progress';
+  else if(W.doneT!=null && W.doneT<=L.time) res=`Level complete in ${W.doneT.toFixed(2)} s`;
   else if(W.doneT!=null) res=`Finished in ${W.doneT.toFixed(2)} s, over the ${L.time} s limit`;
   else res=`Not complete (${W.scored}/${W.total} objects, ${W.togOn}/${W.togTotal} toggles)`;
   const togOn=f.togs.filter(Boolean).length;
-  const key=[togOn,scored,res].join('|');
+  // score levels: 1 point per object in a goal and per toggle on when the run ends (buzzer at L.time)
+  if(L.score) res = Math.min(rev,f.t) < tEnd()-1e-9 ? 'Run in progress' : `Final score ${W.scored+W.togOn} (${W.scored} objects + ${W.togOn} toggles)`;
+  const key=[togOn,scored,res,L.score?f.t.toFixed(1):''].join('|');
   if(key===lastObjKey) return; lastObjKey=key;
   box.innerHTML='';
   const item=(ok,txt)=>{ const sp=el('span',ok?'done':null,(ok?'✓ ':'○ ')+txt); box.appendChild(sp); };
+  if(L.score){
+    box.appendChild(el('span',null,`Score ${scored+togOn}`));
+    item(togOn===f.togs.length,`Wall toggles ${togOn}/${f.togs.length}`);
+    box.appendChild(el('span',null,`Objects scored ${scored}`));
+    box.appendChild(el('span',null,`Time ${Math.min(f.t,L.time).toFixed(1)} / ${L.time} s`));
+    box.appendChild(el('span','result',res));
+    $('#objectivesFs').innerHTML=box.innerHTML;
+    return;
+  }
   item(togOn===f.togs.length,f.togs.length>1?`Wall toggles ${togOn}/${f.togs.length}`:'Wall toggle');
   item(scored===f.objs.length,`Objects scored ${scored}/${f.objs.length}`);
   box.appendChild(el('span',null,`Time limit ${L.time} s`));
@@ -1349,18 +1490,37 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape' && stage.classList.
 // answer key (PIN-gated; the PIN only hides the answer, it is not security)
 const KEY_PIN='3456';
 let keyUnlocked=false;
+let pinPurpose='key';   // 'key' = answer key, 'path' = predicted path
+// a level can give a separate answer key for realistic mode
+const levelKey=L=>state.realistic&&L.keyReal?L.keyReal:L.key;
 function showKey(){
   keyUnlocked=false;   // ask for the PIN every time
   const L=curLevel(); if(!L) return;
-  $('#keyTitle').textContent=`Answer key: ${L.name}`;
+  pinPurpose='key';
+  $('#keyTitle').textContent=`Answer key: ${L.name}`+(state.realistic&&L.keyReal?' (realistic mode)':'');
+  $('#keyHint').textContent='Enter the PIN to see the example solution.';
   $('#keyLock').hidden=keyUnlocked; $('#keyBody').hidden=!keyUnlocked;
-  $('#keyOut').value=L.key; $('#pinIn').value=''; $('#pinErr').textContent='';
+  $('#keyOut').value=levelKey(L); $('#pinIn').value=''; $('#pinErr').textContent='';
   $('#keyDlg').showModal();
   if(!keyUnlocked) $('#pinIn').focus();
 }
+function showPathPin(){
+  pinPurpose='path';
+  $('#keyTitle').textContent='Unlock predicted path';
+  $('#keyHint').textContent='Enter the PIN to unlock the predicted path.';
+  $('#keyLock').hidden=false; $('#keyBody').hidden=true;
+  $('#keyOut').value=''; $('#pinIn').value=''; $('#pinErr').textContent='';
+  $('#keyDlg').showModal();
+  $('#pinIn').focus();
+}
 function tryPin(){
-  if($('#pinIn').value===KEY_PIN){ keyUnlocked=true; $('#keyLock').hidden=true; $('#keyBody').hidden=false; }
-  else { $('#pinErr').textContent='Wrong PIN.'; $('#pinIn').select(); }
+  if($('#pinIn').value!==KEY_PIN){ $('#pinErr').textContent='Wrong PIN.'; $('#pinIn').select(); return; }
+  if(pinPurpose==='path'){
+    pathUnlocked=true; state.showPath=true; save();
+    $('#keyDlg').close(); updModeToggles(); drawAll();
+    return;
+  }
+  keyUnlocked=true; $('#keyLock').hidden=true; $('#keyBody').hidden=false;
 }
 $('#keyBtn').onclick=showKey;
 $('#pinGo').onclick=tryPin;
@@ -1369,8 +1529,9 @@ $('#keyClose').onclick=()=>$('#keyDlg').close();
 $('#keyLoad').onclick=()=>{
   const L=curLevel(); if(!L) return;
   $('#keyDlg').close();
-  if(state.mode!=='code'){ state.codeStale=false; state.code=L.key; codeEl.value=L.key; setMode('code'); }
-  state.code=L.key; codeEl.value=L.key; save(); simT=0; resim();
+  const k=levelKey(L);
+  if(state.mode!=='code'){ state.codeStale=false; state.code=k; codeEl.value=k; setMode('code'); }
+  state.code=k; codeEl.value=k; save(); simT=0; playing=false; updPlayBtn(); resim(true);
 };
 
 // ---------- header actions ----------
